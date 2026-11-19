@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Generador de QR · Tito AR</title>
+  <title>Generador de QR · Byte AR</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="js/content.js"></script>
   <style>
@@ -22,7 +22,7 @@
   </style>
 </head>
 <body>
-  <h1>🐒 Códigos QR de Tito</h1>
+  <h1>🤖 Códigos QR de Byte</h1>
   <p class="help">Escribe la URL donde publicaste la página (HTTPS) y genera un QR por zona. Imprímelos y pégalos en cada lugar de la facultad.</p>
   <div class="bar">
     <input id="base" placeholder="https://tu-usuario.github.io/realidad-aumentada/" />
@@ -42,7 +42,7 @@
       localStorage.setItem("qrbase", b);
       const grid = document.getElementById("grid");
       grid.innerHTML = "";
-      const zones = [{ id: "", icon: "🐒", title: "Entrada / General" }, ...CONTENT.sections];
+      const zones = [{ id: "", icon: "🤖", title: "Entrada / General" }, ...CONTENT.sections];
       zones.forEach((z) => {
         const url = b + (z.id ? "?s=" + z.id : "");
         const d = document.createElement("div");

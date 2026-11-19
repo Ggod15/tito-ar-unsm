@@ -79,3 +79,4 @@ button.icon { width: 40px; height: 40px; border-radius: 50%; background: var(--g
 .btns { display: flex; gap: 8px; }
 #answers:not([hidden]) + #menu { margin-top: 0; }
 #subtitle:not([hidden]) ~ #answers, #subtitle:not([hidden]) ~ #menu { margin-top: 0; }
+.logo-img { width: 112px; height: 112px; border-radius: 50%; object-fit: cover; background: #fff; box-shadow: 0 0 0 4px rgba(192,132,252,.5), 0 8px 24px rgba(0,0,0,.4); margin-bottom: 12px; }

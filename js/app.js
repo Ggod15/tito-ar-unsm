@@ -15,7 +15,7 @@
   let state = "idle"; // idle | scan | live
   let muted = false;
   let speaking = false;
-  let tour = 0;       // token: al cambiarlo se cancela lo que Tito estaba explicando
+  let tour = 0;       // token: al cambiarlo se cancela lo que Byte estaba explicando
   let tourIdx = 0;
   let answerResolve = null;
   let fallbackTimer = null;
@@ -42,7 +42,7 @@
     mascot() && mascot().setSpeaking(false);
   }
 
-  // Tito dice algo y la promesa se cumple cuando termina de hablar.
+  // Byte dice algo y la promesa se cumple cuando termina de hablar.
   function say(text) {
     return new Promise((resolve) => {
       stopSpeech();
@@ -81,7 +81,7 @@
     } catch (e) { /* sin audio */ }
   }
 
-  /* ================= Explicaciones de Tito ================= */
+  /* ================= Explicaciones de Byte ================= */
   function cancelAll() {
     tour++;
     stopSpeech();
@@ -235,10 +235,10 @@
 
   function onQR(r) {
     const info = parseQR(r.data);
-    if (!info) { if (state === "scan") hint("Ese QR no es de Tito 🙈 Busca el código de la facultad"); return; }
+    if (!info) { if (state === "scan") hint("Ese QR no es de Byte 🙈 Busca el código de la facultad"); return; }
     const { pos, d } = worldFromQR(r.pts);
     if (state === "scan") spawn(pos, d, info.zone);
-    else if (state === "live") place(feet(pos), false); // mientras ves el QR, Tito lo sigue y cambia de tamaño con la distancia
+    else if (state === "live") place(feet(pos), false); // mientras ves el QR, Byte lo sigue y cambia de tamaño con la distancia
   }
 
   async function loop(ts) {
@@ -246,7 +246,7 @@
     if (state === "idle" || busy || ts - lastScan < 90) return;
     if (state === "scan" && hintUntil && performance.now() > hintUntil) {
       hintUntil = 0;
-      $("#scan-text").innerHTML = "Apunta la cámara al <b>código QR</b> para despertar a Tito";
+      $("#scan-text").innerHTML = "Apunta la cámara al <b>código QR</b> para despertar a Byte";
     }
     if (!video.srcObject || video.readyState < 2 || !video.videoWidth) return;
     lastScan = ts;
@@ -259,7 +259,7 @@
   const feet = (p) => { p.y -= 0.8 * worldScale; return p; }; // los pies quedan un poco bajo el QR
 
   async function spawn(pos, d, zone) {
-    // Tamaño real de Tito fijado al aparecer: así, al alejarte se ve más chico y al acercarte, más grande.
+    // Tamaño real de Byte fijado al aparecer: así, al alejarte se ve más chico y al acercarte, más grande.
     worldScale = THREE.MathUtils.clamp((AR.scale * d) / AR.refDist, 0.12, 1.5);
     state = "live";
     $("#scan").hidden = true;
@@ -328,9 +328,9 @@
     if (!camOk) {
       const e = $("#splash-err");
       e.hidden = false;
-      e.textContent = "No pude abrir la cámara (¿permiso denegado o conexión no segura?). Puedes invocar a Tito sin QR.";
+      e.textContent = "No pude abrir la cámara (¿permiso denegado o conexión no segura?). Puedes invocar a Byte sin QR.";
       await sleep(1600);
-      $("#scan-text").innerHTML = "Sin cámara: usa el botón para invocar a Tito";
+      $("#scan-text").innerHTML = "Sin cámara: usa el botón para invocar a Byte";
     }
     $("#splash").classList.add("gone");
     $("#hud").hidden = false;

@@ -16,7 +16,7 @@ pega la URL pública y pulsa **Generar**: obtienes un QR por zona (`?s=laborator
 
 ## Personalizar
 - Todo el texto: `js/content.js` (revisa lo marcado `VERIFICAR`).
-- Personaje: `js/mascot.js` (o cambia por un modelo `.glb` con `gltf-model`).
+- Personaje (robot Byte): `js/mascot.js` (construido en código; logo en `assets/logo.png`).
 - Colores: variables en `css/style.css`.
 
 ## Cómo funciona

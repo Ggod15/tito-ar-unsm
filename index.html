@@ -4,12 +4,12 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
   <meta name="theme-color" content="#0b1d2a" />
-  <title>Tito · Guía AR Sistemas UNSM</title>
-  <link rel="stylesheet" href="css/style.css?v=6" />
+  <title>Byte · Guía AR Sistemas UNSM</title>
+  <link rel="stylesheet" href="css/style.css?v=9" />
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
-  <script src="js/content.js?v=6"></script>
-  <script src="js/mascot.js?v=6"></script>
+  <script src="js/content.js?v=9"></script>
+  <script src="js/mascot.js?v=9"></script>
 </head>
 <body>
   <video id="cam" autoplay playsinline muted></video>
@@ -25,10 +25,10 @@
   <!-- Inicio -->
   <section id="splash">
     <div class="card">
-      <div class="logo">🐒</div>
-      <h1>Conoce Sistemas con Tito</h1>
+      <img class="logo-img" src="assets/logo.png" alt="Logo Facultad de Ingeniería de Sistemas e Informática" />
+      <h1>Conoce Sistemas con Byte</h1>
       <p class="sub">Ingeniería de Sistemas e Informática · UNSM</p>
-      <p class="hint">Se usará la cámara y el sonido de tu celular. Cuando se abra la cámara, apunta al <b>código QR</b> y Tito aparecerá.</p>
+      <p class="hint">Se usará la cámara y el sonido de tu celular. Cuando se abra la cámara, apunta al <b>código QR</b> y Byte aparecerá.</p>
       <button id="btn-start" class="primary">Iniciar experiencia AR</button>
       <p id="splash-err" class="err" hidden></p>
     </div>
@@ -37,14 +37,14 @@
   <!-- Modo escaneo -->
   <section id="scan" hidden>
     <div class="frame"><i></i><i></i><i></i><i></i><div class="line"></div></div>
-    <p id="scan-text">Apunta la cámara al <b>código QR</b> para despertar a Tito</p>
-    <button id="btn-summon" class="ghost">No tengo el QR · invocar a Tito</button>
+    <p id="scan-text">Apunta la cámara al <b>código QR</b> para despertar a Byte</p>
+    <button id="btn-summon" class="ghost">No tengo el QR · invocar a Byte</button>
   </section>
 
   <!-- HUD -->
   <div id="hud" hidden>
     <header>
-      <span class="badge">🐒 Tito · Guía AR</span>
+      <span class="badge">🤖 Byte · Guía AR</span>
       <span class="btns">
         <button id="btn-rescan" class="icon" aria-label="Volver a escanear" hidden>🔄</button>
         <button id="btn-mute" class="icon" aria-label="Silenciar voz">🔊</button>
@@ -54,6 +54,6 @@
     <div id="answers" hidden></div>
   </div>
 
-  <script src="js/app.js?v=6"></script>
+  <script src="js/app.js?v=9"></script>
 </body>
 </html>

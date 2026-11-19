@@ -1,24 +1,24 @@
-// Todo lo que Tito dice y muestra. Edita aquí.
-// Cada sección tiene "parts": lo que Tito DICE (say) y los puntos que aparecen en su tarjeta holográfica (lines).
+// Todo lo que Byte dice y muestra. Edita aquí.
+// Cada sección tiene "parts": lo que Byte DICE (say) y los puntos que aparecen en su tarjeta holográfica (lines).
 // Los textos marcados con VERIFICAR son referenciales: reemplázalos con los datos oficiales de la facultad.
 window.CONTENT = {
   ar: {
     qrSizeM: 0.15,  // tamaño IMPRESO del QR en metros (cámbialo si imprimes otro tamaño: define la distancia estimada)
-    scale: 0.55,    // tamaño de Tito cuando aparece a refDist metros
-    refDist: 2.0,   // distancia "cómoda" a la que Tito se ve con ese tamaño
+    scale: 0.5,     // tamaño de Byte cuando aparece a refDist metros
+    refDist: 2.0,   // distancia "cómoda" a la que Byte se ve con ese tamaño
     minDist: 0.4,
     maxDist: 8,
     camFov: 65,     // campo de visión vertical de la cámara (aprox.)
   },
 
   mascot: {
-    name: "Tito",
+    name: "Byte",
     welcome:
-      "¡Hola! Soy Tito, el mono tocón, mascota de Ingeniería de Sistemas e Informática de la Universidad Nacional de San Martín. Te voy a contar todo sobre nuestra facultad. ¡Empecemos!",
+      "¡Hola! Soy Byte, el robot guía de Ingeniería de Sistemas e Informática de la Universidad Nacional de San Martín. Mis circuitos están listos para contarte todo sobre nuestra facultad. ¡Empecemos!",
     outro: "¡Eso es todo por ahora! Gracias por visitarnos. ¡Te esperamos en Sistemas!",
     askMore: "Escanea los otros códigos QR de la facultad para conocer más. ¡Hasta pronto!",
     funFacts: [
-      "¿Sabías que el mono tocón vive solo en San Martín? ¡Igual que nuestra facultad, somos únicos!",
+      "¿Sabías que la palabra bit viene de dígito binario? ¡Yo soy un robot hecho de unos y ceros, igual que todo en informática!",
       "Un ingeniero de sistemas no solo programa: también diseña redes, protege datos y lidera proyectos.",
       "El primer programador de la historia fue Ada Lovelace, ¡en el siglo diecinueve!",
       "Cada vez que usas una app del celular, detrás hay un ingeniero de sistemas.",
