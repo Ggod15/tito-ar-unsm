@@ -243,7 +243,7 @@
     if (!info) { if (state === "scan") hint("Ese QR no es de Byte 🙈 Busca el código de la facultad"); return; }
     const { pos, d } = worldFromQR(r.pts);
     if (state === "scan") spawn(pos, d, info.zone);
-    else if (state === "live") place(feet(pos), false); // mientras ves el QR, Byte lo sigue y cambia de tamaño con la distancia
+    else if (state === "live") refine(pos); // con el QR a la vista se corrige la posicion
   }
 
   async function loop(ts) {
@@ -255,6 +255,7 @@
     }
     if (!video.srcObject || video.readyState < 2 || !video.videoWidth) return;
     lastScan = ts;
+    if (state === "live") { liveTick++; motionStep(); turnToCamera(); if (liveTick % 3) return; } // QR cada 3 cuadros
     busy = true;
     try {
       const r = await detectQR();
@@ -270,6 +271,49 @@
   let worldScale = AR.scale;
   const feet = (p) => { p.y -= 0.8 * worldScale; return p; }; // los pies quedan un poco bajo el QR
 
+  const qrAnchor = new THREE.Vector3();   // punto del mundo donde esta el QR (Byte se queda aqui)
+  let liveTick = 0;
+
+  // Acercar/alejar sin ARCore: la expansion de los puntos de la imagen mueve una camara virtual hacia adelante/atras.
+  function motionStep() {
+    const r = window.MotionEstimator && MotionEstimator.step(video);
+    if (!r || r.shift > 5) return;                    // giro rapido o poca informacion: no se fia
+    if (Math.abs(r.e) < 0.004) return;                // ruido
+    const e = THREE.MathUtils.clamp(r.e, -0.12, 0.12);
+    camPose();
+    const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(camQ);
+    fwd.y = 0;
+    if (fwd.lengthSq() < 0.05) return;
+    fwd.normalize();
+    const Z = Math.max(0.6, Math.hypot(qrAnchor.x - camP.x, qrAnchor.z - camP.z));
+    const delta = Z * (1 - 1 / (1 + e));              // e>0: te acercas
+    const next = camEl.object3D.position.clone().addScaledVector(fwd, delta);
+    const dist = Math.hypot(qrAnchor.x - next.x, qrAnchor.z - next.z);
+    if (dist > 0.4 && dist < 9) camEl.object3D.position.copy(next);
+  }
+
+  // Mientras se ve el QR se corrige la deriva: el giro ajusta la direccion del ancla y la distancia corrige la camara virtual.
+  function refine(pos) {
+    camPose();
+    const da = qrAnchor.clone().sub(camP), dm = pos.clone().sub(camP);
+    const ra = da.length(), rm = dm.length();
+    if (ra < 1e-3 || rm < 1e-3) return;
+    const dir = da.clone().normalize().lerp(dm.clone().normalize(), 0.35).normalize();
+    qrAnchor.copy(camP).addScaledVector(dir, ra);
+    camEl.object3D.position.addScaledVector(dir, (ra - rm) * 0.35);
+    const o = mascotEl.object3D.position;
+    o.copy(qrAnchor); o.y -= 0.8 * worldScale;
+  }
+
+  // Byte gira suavemente para seguir mirandote
+  function turnToCamera() {
+    camPose();
+    const o = mascotEl.object3D, p = o.position;
+    const target = Math.atan2(camP.x - p.x, camP.z - p.z);
+    const diff = Math.atan2(Math.sin(target - o.rotation.y), Math.cos(target - o.rotation.y));
+    o.rotation.y += diff * 0.08;
+  }
+
   async function spawn(pos, d, zone) {
     // Tamaño real de Byte fijado al aparecer: así, al alejarte se ve más chico y al acercarte, más grande.
     worldScale = THREE.MathUtils.clamp((AR.scale * d) / AR.refDist, 0.12, 1.5);
@@ -277,7 +321,9 @@
     $("#scan").hidden = true;
     $("#btn-rescan").hidden = false;
     mascotEl.object3D.scale.setScalar(worldScale);
-    place(feet(pos), true);
+    qrAnchor.copy(pos);
+    if (window.MotionEstimator) MotionEstimator.reset();
+    place(feet(pos.clone()), true);
     mascotEl.setAttribute("visible", true);
     return runIntro(zone);
   }
@@ -335,6 +381,7 @@
     mascotEl.setAttribute("visible", false);
     $("#subtitle").hidden = true;
     $("#btn-rescan").hidden = true;
+    if (mode !== "xr") camEl.object3D.position.set(0, 1.4, 0);
     if (mode === "xr") { state = "xr-find"; xrHint(hitFound ? "Toca la pantalla para llamar a Byte aquí 👇" : "Busco el piso… mueve el celular despacio"); return; }
     $("#scan").hidden = false;
     state = "scan";

@@ -33,3 +33,9 @@ En Android con Chrome y ARCore, la pantalla de inicio muestra **"✨ Iniciar AR 
 y queda anclado en el espacio (al caminar se ve más grande o más chico de verdad). Flujo: escaneas el QR con la cámara normal del
 teléfono (abre la página con `?s=zona`) → AR real → apuntas al piso → tocas. En iPhone y otros se usa el modo "escanear el QR".
 Para probar la lógica en PC sin teléfono: añade `?xrmock=1` a la dirección.
+
+## Acercar/alejar en cualquier celular (sin ARCore)
+`js/motion.js` sigue pequeños parches de la imagen de la cámara: al acercarte, los puntos se "abren" desde el centro; al alejarte se "cierran".
+Con eso se mueve una cámara virtual hacia adelante/atrás, así Byte se ve más grande o más chico aunque el QR ya no esté a la vista.
+Cuando el QR vuelve a verse, se corrige la deriva. Limitaciones: necesita una escena con algo de textura (no una pared lisa), y solo estima el
+avance hacia adelante/atrás (no el desplazamiento lateral).
