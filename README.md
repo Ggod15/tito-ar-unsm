@@ -19,6 +19,12 @@ pega la URL pública y pulsa **Generar**: obtienes un QR por zona (`?s=laborator
 - Personaje: `js/mascot.js` (o cambia por un modelo `.glb` con `gltf-model`).
 - Colores: variables en `css/style.css`.
 
-## Cómo funciona el "AR"
-La cámara trasera se muestra como fondo y el personaje 3D se dibuja encima; el giroscopio mueve la vista, así que Tito parece
-quedarse fijo en el espacio al mover el celular. Es AR sin marcadores, compatible con Android e iOS.
+## Cómo funciona
+1. El QR abre la página. Pulsas **Iniciar** y se abre la cámara en modo escaneo (Tito NO aparece todavía).
+2. Al apuntar al QR (se lee con jsQR en el propio navegador), Tito **sale disparado** del código con portal, rayo de luz, chispas y sonido.
+3. Tito explica todo con **voz y subtítulos**; los puntos clave aparecen en una **tarjeta holográfica 3D** sobre él. Hace un recorrido guiado automático (⏭ para saltar tema, menú para elegir uno).
+4. Mientras ves el QR, Tito lo sigue; al apartar la cámara **se queda fijo** en el lugar donde apareció (giroscopio). 🔄 vuelve a escanear.
+
+Limitación: es anclaje por giroscopio (3 grados de libertad): si giras o inclinas el celular, Tito se queda en su sitio;
+si caminas hacia atrás no cambia de tamaño (eso requeriría WebXR/ARCore, que no funciona en iPhone).
+Ajustes en `js/content.js` → `ar` (tamaño impreso del QR, tamaño y distancia de Tito).
