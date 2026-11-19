@@ -8,6 +8,7 @@
   const video = $("#cam");
   const mascotEl = $("#mascot");
   const camEl = $("#cam3d");
+  const scene = $("#scene");
   const mascot = () => mascotEl.components.mascot;
   const sec = (id) => C.sections.find((s) => s.id === id);
   const tourList = C.sections.filter((s) => !s.quiz);
@@ -156,7 +157,7 @@
   /* ================= Posicionamiento AR ================= */
   const camQ = new THREE.Quaternion();
   const camP = new THREE.Vector3();
-  function camPose() { camEl.object3D.updateMatrixWorld(true); camEl.object3D.getWorldQuaternion(camQ); camEl.object3D.getWorldPosition(camP); }
+  function camPose() { const c = scene.camera || camEl.object3D; c.updateMatrixWorld(true); c.getWorldQuaternion(camQ); c.getWorldPosition(camP); }
 
   function faceCamera() {
     camPose();
@@ -278,6 +279,12 @@
     mascotEl.object3D.scale.setScalar(worldScale);
     place(feet(pos), true);
     mascotEl.setAttribute("visible", true);
+    return runIntro(zone);
+  }
+
+  // Aparicion de Byte + explicacion (la usan el modo QR y el modo AR real)
+  async function runIntro(zone) {
+    $("#btn-rescan").hidden = false;
     mascot().appear();
     chime();
     if (navigator.vibrate) navigator.vibrate([60, 40, 140]);
@@ -315,6 +322,7 @@
     mascot().vanish(() => {
       if (state !== "leaving") return;
       rescan();
+      if (mode === "xr") { xrHint("¡Hasta pronto! 👋 Toca la pantalla para llamar a Byte otra vez"); return; }
       needClear = true;
       lastQrSeen = performance.now();
       $("#scan-text").innerHTML = "¡Hasta pronto! 👋 Aleja la cámara del QR y vuelve a apuntar para llamar a Byte otra vez";
@@ -327,6 +335,7 @@
     mascotEl.setAttribute("visible", false);
     $("#subtitle").hidden = true;
     $("#btn-rescan").hidden = true;
+    if (mode === "xr") { state = "xr-find"; xrHint(hitFound ? "Toca la pantalla para llamar a Byte aquí 👇" : "Busco el piso… mueve el celular despacio"); return; }
     $("#scan").hidden = false;
     state = "scan";
   }
@@ -368,6 +377,113 @@
     $("#scan").hidden = false;
     state = "scan";
   }
+
+  /* ================= AR real con WebXR (Android + Chrome) =================
+     Byte queda anclado al piso (ARCore): al caminar se ve mas grande o mas chico de verdad.
+     Flujo: el QR (leido con la camara del telefono) abre esta pagina con ?s=zona -> "AR real" -> se detecta el piso
+     -> un toque coloca a Byte. */
+  let mode = "qr";                    // qr | xr
+  let hitSource = null, hitFound = false;
+  const hitPos = new THREE.Vector3();
+  const mock = new URLSearchParams(location.search).get("xrmock") === "1"; // simulacion para probar en PC
+  const reticle = $("#reticle");
+
+  function xrHint(t) { const h = $("#xr-hint"); h.textContent = t || ""; h.hidden = !t; }
+  async function xrSupported() {
+    try { return !!(navigator.xr && (await navigator.xr.isSessionSupported("immersive-ar"))); } catch (e) { return false; }
+  }
+
+  AFRAME.registerComponent("xr-hit", {
+    tick() {
+      if (mode !== "xr" || state !== "xr-find") { reticle.object3D.visible = false; return; }
+      if (mock) { reticle.object3D.position.copy(hitPos); reticle.object3D.visible = true; return; }
+      const frame = scene.frame;
+      if (!hitSource || !frame) { reticle.object3D.visible = false; return; }
+      const res = frame.getHitTestResults(hitSource);
+      const pose = res.length ? res[0].getPose(scene.renderer.xr.getReferenceSpace()) : null;
+      if (pose) {
+        const p = pose.transform.position;
+        hitPos.set(p.x, p.y, p.z);
+        reticle.object3D.position.copy(hitPos);
+        reticle.object3D.visible = true;
+        const k = 1 + Math.sin(performance.now() / 250) * 0.06;
+        reticle.object3D.scale.set(k, k, k);
+        if (!hitFound) { hitFound = true; xrHint("Toca la pantalla para llamar a Byte aquí \u{1F447}"); }
+      } else {
+        reticle.object3D.visible = false;
+        if (hitFound) { hitFound = false; xrHint("Busco el piso… mueve el celular despacio"); }
+      }
+    },
+  });
+  scene.setAttribute("xr-hit", "");
+
+  // Si el telefono no logra detectar el piso, se coloca frente a ti, a la altura del suelo estimada.
+  function fallbackFloor() {
+    camPose();
+    const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(camQ);
+    fwd.y = 0; if (fwd.lengthSq() < 1e-4) fwd.set(0, 0, -1); fwd.normalize();
+    return camP.clone().add(fwd.multiplyScalar(1.8)).setY(Math.max(0, camP.y - 1.3));
+  }
+
+  function onSelect() {
+    if (mode !== "xr" || state !== "xr-find") return;
+    const p = hitFound ? hitPos.clone() : fallbackFloor();
+    state = "xr-live";
+    xrHint("");
+    reticle.object3D.visible = false;
+    worldScale = AR.scale;
+    mascotEl.object3D.scale.setScalar(worldScale);
+    place(p, true);
+    mascotEl.setAttribute("visible", true);
+    runIntro(zoneParam);
+  }
+
+  scene.addEventListener("enter-vr", () => {
+    if (mode !== "xr" || !scene.is("ar-mode")) return;
+    camEl.object3D.position.set(0, 0, 0); // en WebXR la altura real la da el telefono
+    const session = scene.renderer.xr.getSession();
+    session.requestReferenceSpace("viewer")
+      .then((vs) => session.requestHitTestSource({ space: vs }))
+      .then((src) => { hitSource = src; })
+      .catch(() => xrHint("No pude detectar el piso; toca la pantalla para colocar a Byte frente a ti"));
+    session.addEventListener("select", onSelect);
+    session.addEventListener("end", () => location.reload());
+  });
+
+  function xrFail() {
+    mode = "qr"; state = "idle";
+    xrHint("");
+    $("#hud").hidden = true;
+    $("#splash").classList.remove("gone");
+    document.body.classList.remove("nocam");
+    const e = $("#splash-err");
+    e.hidden = false;
+    e.textContent = "No se pudo iniciar el AR real en este teléfono. Usa el modo compatible (escanear el QR).";
+  }
+
+  function startXR() {
+    mode = "xr";
+    if (canSpeak) { const u = new SpeechSynthesisUtterance(" "); u.volume = 0; speechSynthesis.speak(u); }
+    $("#splash").classList.add("gone");
+    $("#hud").hidden = false;                 // debe estar visible: es la capa de interfaz sobre la camara AR
+    $("#scan").hidden = true;
+    $("#btn-rescan").hidden = true;
+    document.body.classList.add("nocam");     // la camara la pone WebXR, no el <video>
+    state = "xr-find";
+    xrHint("Apunta al piso y mueve el celular despacio…");
+    if (mock) { hitFound = true; hitPos.set(0, -0.6, -2); xrHint("Toca la pantalla para llamar a Byte aquí \u{1F447}"); return; }
+    try { const p = scene.enterAR(); if (p && p.catch) p.catch(xrFail); } catch (e) { xrFail(); }
+  }
+
+  xrSupported().then((ok) => {
+    if (!ok && !mock) return;
+    $("#btn-start-xr").hidden = false;
+    $("#btn-start").classList.add("alt");
+    $("#btn-start").textContent = "Modo compatible: escanear el QR (iPhone y otros)";
+  });
+  $("#btn-start-xr").onclick = startXR;
+  document.querySelectorAll("#hud button").forEach((b) => b.addEventListener("beforexrselect", (e) => e.preventDefault()));
+  if (mock) document.addEventListener("click", (e) => { if (!e.target.closest("button")) onSelect(); });
 
   /* ================= Eventos ================= */
   $("#btn-start").onclick = start;

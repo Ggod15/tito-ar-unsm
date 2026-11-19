@@ -27,3 +27,9 @@ pega la URL pública y pulsa **Generar**: obtienes un QR por zona (`?s=laborator
 
 Limitación: el tamaño cambia mientras la cámara VEA el QR (mide su tamaño aparente = distancia). Si lo pierdes de vista, Tito se queda en el último punto (giroscopio). Para verlo desde más lejos imprime el QR más grande (qr.html) y ajusta `ar.qrSizeM` en js/content.js.
 Ajustes en `js/content.js` → `ar` (tamaño impreso del QR, tamaño y distancia de Tito).
+
+## AR real en Android (WebXR)
+En Android con Chrome y ARCore, la pantalla de inicio muestra **"✨ Iniciar AR real"**: se detecta el piso, un toque coloca a Byte
+y queda anclado en el espacio (al caminar se ve más grande o más chico de verdad). Flujo: escaneas el QR con la cámara normal del
+teléfono (abre la página con `?s=zona`) → AR real → apuntas al piso → tocas. En iPhone y otros se usa el modo "escanear el QR".
+Para probar la lógica en PC sin teléfono: añade `?xrmock=1` a la dirección.

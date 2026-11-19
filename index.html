@@ -5,21 +5,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
   <meta name="theme-color" content="#140a26" />
   <title>Byte · Guía AR Sistemas UNSM</title>
-  <link rel="stylesheet" href="css/style.css?v=11" />
+  <link rel="stylesheet" href="css/style.css?v=12" />
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
-  <script src="js/content.js?v=11"></script>
-  <script src="js/mascot.js?v=11"></script>
+  <script src="js/content.js?v=12"></script>
+  <script src="js/mascot.js?v=12"></script>
 </head>
 <body>
   <video id="cam" autoplay playsinline muted></video>
 
-  <a-scene id="scene" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false"
+  <a-scene id="scene" webxr="optionalFeatures: hit-test, dom-overlay; overlayElement: #hud" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false"
            renderer="alpha: true; antialias: true" cursor="rayOrigin: mouse" raycaster="objects: .clickable">
     <a-entity id="cam3d" camera="fov: 65" look-controls="touchEnabled: true; magicWindowTrackingEnabled: true" position="0 1.4 0"></a-entity>
     <a-entity light="type: ambient; intensity: 0.9; color: #ffffff"></a-entity>
     <a-entity light="type: directional; intensity: 0.9; color: #fff4e0" position="1 3 2"></a-entity>
     <a-entity id="mascot" mascot visible="false"></a-entity>
+    <!-- reticula que marca el piso en el modo AR real -->
+    <a-entity id="reticle" visible="false">
+      <a-ring radius-inner="0.13" radius-outer="0.18" rotation="-90 0 0" material="shader: flat; color: #c084fc; side: double"></a-ring>
+      <a-circle radius="0.035" rotation="-90 0 0" material="shader: flat; color: #ffffff; side: double"></a-circle>
+    </a-entity>
   </a-scene>
 
   <!-- Inicio -->
@@ -29,6 +34,7 @@
       <h1>Conoce Sistemas con Byte</h1>
       <p class="sub">Ingeniería de Sistemas e Informática · UNSM</p>
       <p class="hint">Se usará la cámara y el sonido de tu celular. Cuando se abra la cámara, apunta al <b>código QR</b> y Byte aparecerá.</p>
+      <button id="btn-start-xr" class="primary" hidden>✨ Iniciar AR real (Android)</button>
       <button id="btn-start" class="primary">Iniciar experiencia AR</button>
       <p id="splash-err" class="err" hidden></p>
     </div>
@@ -42,7 +48,7 @@
   </section>
 
   <!-- HUD -->
-  <div id="hud" hidden>
+  <div id="hud" class="a-no-style" hidden>
     <header>
       <span class="badge">🤖 Byte · Guía AR</span>
       <span class="btns">
@@ -50,10 +56,11 @@
         <button id="btn-mute" class="icon" aria-label="Silenciar voz">🔊</button>
       </span>
     </header>
+    <div id="xr-hint" hidden></div>
     <div id="subtitle" hidden></div>
     <div id="answers" hidden></div>
   </div>
 
-  <script src="js/app.js?v=11"></script>
+  <script src="js/app.js?v=12"></script>
 </body>
 </html>
