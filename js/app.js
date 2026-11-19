@@ -66,13 +66,13 @@
     });
   }
 
-  function chime() {
+  function chime(down) {
     try {
       const ac = new (window.AudioContext || window.webkitAudioContext)();
       const o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime;
       o.type = "sine";
-      o.frequency.setValueAtTime(260, t);
-      o.frequency.exponentialRampToValueAtTime(1300, t + 0.55);
+      o.frequency.setValueAtTime(down ? 1300 : 260, t);
+      o.frequency.exponentialRampToValueAtTime(down ? 260 : 1300, t + 0.55);
       g.gain.setValueAtTime(0.0001, t);
       g.gain.exponentialRampToValueAtTime(0.25, t + 0.12);
       g.gain.exponentialRampToValueAtTime(0.0001, t + 0.8);
@@ -109,6 +109,9 @@
     }
     mascot().hideCard();
     await say(C.mascot.outro);
+    if (token !== tour) return;
+    await sleep(300);
+    leave(token);
   }
 
   function waitAnswer() { return new Promise((r) => (answerResolve = r)); }
@@ -201,6 +204,7 @@
   const bd = "BarcodeDetector" in window ? new BarcodeDetector({ formats: ["qr_code"] }) : null; // nativo y rápido (Chrome/Android)
   let bdOk = !!bd;
   let lastScan = 0, hintUntil = 0, busy = false;
+  let needClear = false, lastQrSeen = 0; // tras irse, Byte no reaparece hasta que el QR salga de la vista
 
   function parseQR(data) {
     try {
@@ -251,7 +255,14 @@
     if (!video.srcObject || video.readyState < 2 || !video.videoWidth) return;
     lastScan = ts;
     busy = true;
-    try { const r = await detectQR(); if (r) onQR(r); } finally { busy = false; }
+    try {
+      const r = await detectQR();
+      if (r) { if (needClear) lastQrSeen = performance.now(); else onQR(r); }
+      else if (needClear && performance.now() - lastQrSeen > 1600) {
+        needClear = false;
+        $("#scan-text").innerHTML = "Apunta la cámara al <b>código QR</b> para despertar a Byte";
+      }
+    } finally { busy = false; }
   }
 
   /* ================= Flujo ================= */
@@ -283,11 +294,31 @@
       if (!(await playSection(s, token))) return;
       mascot().hideCard();
       await say(C.mascot.askMore);
+      if (token !== tour) return;
+      await sleep(300);
+      leave(token);
     } else {
       await say(C.mascot.welcome);
       if (token !== tour) return;
       runTour(0, token);
     }
+  }
+
+  // Fin del módulo: Byte se despide y se va por un portal; vuelve el modo escaneo.
+  function leave(token) {
+    if (token !== tour) return;
+    state = "leaving";
+    $("#subtitle").hidden = true;
+    mascot().hideCard();
+    mascot().wave(900);
+    chime(true);
+    mascot().vanish(() => {
+      if (state !== "leaving") return;
+      rescan();
+      needClear = true;
+      lastQrSeen = performance.now();
+      $("#scan-text").innerHTML = "¡Hasta pronto! 👋 Aleja la cámara del QR y vuelve a apuntar para llamar a Byte otra vez";
+    });
   }
 
   function rescan() {
@@ -344,7 +375,11 @@
     if (state !== "scan") return;
     spawn(worldInFront(), AR.refDist, zoneParam);
   };
-  $("#btn-rescan").onclick = rescan;
+  $("#btn-rescan").onclick = () => {
+    needClear = false;
+    $("#scan-text").innerHTML = "Apunta la cámara al <b>código QR</b> para despertar a Byte";
+    rescan();
+  };
   $("#btn-mute").onclick = (e) => {
     muted = !muted;
     e.currentTarget.textContent = muted ? "🔇" : "🔊";

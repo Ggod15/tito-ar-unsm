@@ -16,6 +16,7 @@
 
   const PURPLE = "#6d4aa8", DPURPLE = "#4a3279", BLACK = "#15131c", NEON = "#c084fc";
   const INTRO_MS = 1300;
+  const VANISH_MS = 800;
   const REST = 0.32; // ángulo de reposo de los brazos (rad)
 
   function wrapText(ctx, text, maxW) {
@@ -211,7 +212,55 @@
       this.fx();
       setTimeout(() => this.wave(2600), 350 + INTRO_MS + 300);
     },
-    hide() { this.active = false; this.hideCard(); this.speaking = false; },
+    hide() { this.active = false; this.vanishing = false; this.hideCard(); this.speaking = false; },
+
+    // Salida por portal: Byte gira, se encoge hacia arriba y desaparece; luego se llama a cb.
+    vanish(cb) {
+      if (!this.active || this.vanishing) { cb && cb(); return; }
+      this.hideCard();
+      this.vanishing = true;
+      this.vt0 = performance.now() + 450;   // deja que el portal se abra antes
+      this.vcb = cb;
+      this.fxOut();
+    },
+
+    fxOut() {
+      const items = [];
+      const add = (tag, attrs) => { const e = mk(this.el, tag, attrs); items.push(e); return e; };
+      // anillos que se cierran
+      for (let i = 0; i < 3; i++) {
+        add("a-ring", {
+          "radius-inner": 0.82, "radius-outer": 1, rotation: "-90 0 0", position: "0 0.03 0",
+          material: `shader: flat; color: ${NEON}; transparent: true; opacity: 0; side: double`,
+          animation: `property: scale; from: 2.6 2.6 2.6; to: 0.2 0.2 0.2; dur: 900; delay: ${i * 160}; easing: easeInQuad`,
+          animation__o: `property: material.opacity; from: 0.95; to: 0; dur: 900; delay: ${i * 160}; easing: easeInQuad`,
+        });
+      }
+      // rayo de luz que se lleva a Byte
+      add("a-cylinder", {
+        radius: 0.32, height: 2.6, "open-ended": true, position: "0 1.3 0",
+        material: "shader: flat; color: #e4c8ff; transparent: true; opacity: 0.45; side: double",
+        animation: "property: scale; from: 1 0.02 1; to: 1 1 1; dur: 350; delay: 350; easing: easeOutCubic",
+        animation__o: "property: material.opacity; from: 0.45; to: 0; dur: 500; delay: 900; easing: easeInQuad",
+      });
+      add("a-entity", {
+        light: `type: point; color: ${NEON}; intensity: 0; distance: 8`, position: "0 0.9 0.6",
+        animation: "property: light.intensity; from: 0; to: 5; dur: 300; delay: 700",
+        animation__b: "property: light.intensity; from: 5; to: 0; dur: 500; delay: 1000",
+      });
+      // chispas que suben y se juntan
+      for (let i = 0; i < 24; i++) {
+        const a = Math.random() * Math.PI * 2, r = 0.4 + Math.random() * 1.0, h = 0.2 + Math.random() * 1.2;
+        const dur = 600 + Math.random() * 500, delay = Math.random() * 350;
+        add("a-sphere", {
+          radius: 0.03 + Math.random() * 0.03, position: `${Math.cos(a) * r} ${h} ${Math.sin(a) * r}`,
+          material: `shader: flat; color: ${Math.random() > 0.5 ? NEON : "#7dd3fc"}; transparent: true`,
+          animation: `property: position; to: 0 ${1.2 + Math.random() * 0.8} 0; dur: ${dur}; delay: ${delay}; easing: easeInQuad`,
+          animation__o: `property: material.opacity; from: 1; to: 0; dur: ${dur}; delay: ${delay}; easing: easeInQuad`,
+        });
+      }
+      setTimeout(() => items.forEach((e) => e.parentNode && e.parentNode.removeChild(e)), 2200);
+    },
 
     fx() {
       const items = [];
@@ -260,7 +309,17 @@
       if (!this.active || now < this.t0) { o.scale.setScalar(0.0001); return; }
       const el = now - this.t0;
       let sc = 1, introY = 0, introRot = 0;
-      if (el < INTRO_MS) {
+      if (this.vanishing) {
+        const p = Math.min(1, Math.max(0, (now - this.vt0) / VANISH_MS));
+        sc = Math.max(0.0001, 1 - p * p * p);
+        introY = p * p * 1.1;
+        introRot = p * p * Math.PI * 5;
+        if (p >= 1) {
+          this.vanishing = false; this.active = false;
+          const cb = this.vcb; this.vcb = null;
+          if (cb) cb();
+        }
+      } else if (el < INTRO_MS) {
         const p = el / INTRO_MS;
         sc = Math.max(0.0001, easeOutBack(Math.min(1, p * 1.1)));
         introY = Math.sin(Math.PI * p) * 0.9;
