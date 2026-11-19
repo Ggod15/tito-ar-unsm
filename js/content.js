@@ -15,9 +15,8 @@ window.CONTENT = {
     name: "Tito",
     welcome:
       "¡Hola! Soy Tito, el mono tocón, mascota de Ingeniería de Sistemas e Informática de la Universidad Nacional de San Martín. Te voy a contar todo sobre nuestra facultad. ¡Empecemos!",
-    outro:
-      "¡Eso es todo por ahora! Si quieres jugar, toca Trivia en el menú. ¡Te esperamos en Sistemas!",
-    askMore: "¿Qué más quieres saber? Elige otra opción del menú.",
+    outro: "¡Eso es todo por ahora! Gracias por visitarnos. ¡Te esperamos en Sistemas!",
+    askMore: "Escanea los otros códigos QR de la facultad para conocer más. ¡Hasta pronto!",
     funFacts: [
       "¿Sabías que el mono tocón vive solo en San Martín? ¡Igual que nuestra facultad, somos únicos!",
       "Un ingeniero de sistemas no solo programa: también diseña redes, protege datos y lidera proyectos.",

@@ -102,26 +102,13 @@
   }
 
   async function runTour(from, token) {
-    $("#btn-skip").hidden = false;
     for (let i = from; i < tourList.length; i++) {
       tourIdx = i;
       mascot().wave(1200);
       if (!(await playSection(tourList[i], token))) return;
     }
-    $("#btn-skip").hidden = true;
     mascot().hideCard();
     await say(C.mascot.outro);
-  }
-
-  async function jump(id) {
-    const token = cancelAll();
-    $("#btn-skip").hidden = true;
-    const s = sec(id);
-    mascot().wave(1500);
-    if (s.quiz) return playQuiz(s, token);
-    if (!(await playSection(s, token))) return;
-    mascot().hideCard();
-    await say(C.mascot.askMore);
   }
 
   function waitAnswer() { return new Promise((r) => (answerResolve = r)); }
@@ -276,7 +263,6 @@
     worldScale = THREE.MathUtils.clamp((AR.scale * d) / AR.refDist, 0.12, 1.5);
     state = "live";
     $("#scan").hidden = true;
-    $("#menu").hidden = false;
     $("#btn-rescan").hidden = false;
     mascotEl.object3D.scale.setScalar(worldScale);
     place(feet(pos), true);
@@ -309,22 +295,9 @@
     mascot().hide();
     mascotEl.setAttribute("visible", false);
     $("#subtitle").hidden = true;
-    $("#menu").hidden = true;
     $("#btn-rescan").hidden = true;
-    $("#btn-skip").hidden = true;
     $("#scan").hidden = false;
     state = "scan";
-  }
-
-  function buildMenu() {
-    const nav = $("#menu");
-    nav.innerHTML = "";
-    C.sections.forEach((s) => {
-      const b = document.createElement("button");
-      b.textContent = `${s.icon} ${s.title}`;
-      b.onclick = () => jump(s.id);
-      nav.appendChild(b);
-    });
   }
 
   async function startCamera() {
@@ -372,7 +345,6 @@
     spawn(worldInFront(), AR.refDist, zoneParam);
   };
   $("#btn-rescan").onclick = rescan;
-  $("#btn-skip").onclick = () => { const token = cancelAll(); mascot().hideCard(); runTour(tourIdx + 1, token); };
   $("#btn-mute").onclick = (e) => {
     muted = !muted;
     e.currentTarget.textContent = muted ? "🔇" : "🔊";
@@ -384,6 +356,5 @@
     if (!speaking) say(C.mascot.funFacts[fact++ % C.mascot.funFacts.length]);
   });
 
-  buildMenu();
   requestAnimationFrame(loop);
 })();
