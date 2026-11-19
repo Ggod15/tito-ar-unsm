@@ -179,15 +179,12 @@
     faceCamera();
   }
 
-  // Convierte la posición del QR en pantalla en un punto del mundo (a la distancia estimada por su tamaño).
-  function worldFromQR(code, cw) {
+  // Convierte la posición del QR en pantalla en un punto del mundo, a la distancia que indica su tamaño aparente.
+  function worldFromQR(pts) {
     const vw = video.videoWidth, vh = video.videoHeight, W = innerWidth, H = innerHeight;
-    const f = vw / cw;
-    const L = code.location;
-    const pts = [L.topLeftCorner, L.topRightCorner, L.bottomRightCorner, L.bottomLeftCorner];
-    const cx = pts.reduce((a, p) => a + p.x, 0) / 4 * f;
-    const cy = pts.reduce((a, p) => a + p.y, 0) / 4 * f;
-    const widthPx = Math.hypot(L.topRightCorner.x - L.topLeftCorner.x, L.topRightCorner.y - L.topLeftCorner.y) * f;
+    const cx = pts.reduce((a, p) => a + p.x, 0) / pts.length;
+    const cy = pts.reduce((a, p) => a + p.y, 0) / pts.length;
+    const widthPx = (Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y) + Math.hypot(pts[2].x - pts[3].x, pts[2].y - pts[3].y)) / 2;
     const k = Math.max(W / vw, H / vh);                 // object-fit: cover
     const sx = cx * k + (W - vw * k) / 2;
     const sy = cy * k + (H - vh * k) / 2;
@@ -199,7 +196,7 @@
 
     camPose();
     const dir = new THREE.Vector3(nx * tX, ny * tY, -1).normalize().applyQuaternion(camQ);
-    return camP.clone().add(dir.multiplyScalar(d)).add(new THREE.Vector3(0, -0.45, 0)); // los pies quedan un poco bajo el QR
+    return { pos: camP.clone().add(dir.multiplyScalar(d)), d };
   }
 
   function worldInFront() {
@@ -208,13 +205,15 @@
     fwd.y = 0;
     if (fwd.lengthSq() < 1e-4) fwd.set(0, 0, -1);
     fwd.normalize();
-    return camP.clone().add(fwd.multiplyScalar(1.8)).add(new THREE.Vector3(0, -0.8, 0));
+    return camP.clone().add(fwd.multiplyScalar(1.8)).add(new THREE.Vector3(0, -0.4, 0));
   }
 
   /* ================= Escaneo de QR ================= */
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
-  let lastScan = 0, lastSeen = 0, hintUntil = 0;
+  const bd = "BarcodeDetector" in window ? new BarcodeDetector({ formats: ["qr_code"] }) : null; // nativo y rápido (Chrome/Android)
+  let bdOk = !!bd;
+  let lastScan = 0, hintUntil = 0, busy = false;
 
   function parseQR(data) {
     try {
@@ -228,38 +227,59 @@
     hintUntil = performance.now() + ms;
   }
 
-  function loop(ts) {
+  // Devuelve { data, pts:[4 esquinas en píxeles del video] } o null
+  async function detectQR() {
+    if (bdOk) {
+      try {
+        const codes = await bd.detect(video);
+        return codes.length ? { data: codes[0].rawValue, pts: codes[0].cornerPoints } : null;
+      } catch (e) { bdOk = false; }
+    }
+    if (!window.jsQR) return null;
+    const cw = 800, ch = Math.round((cw * video.videoHeight) / video.videoWidth);
+    if (canvas.width !== cw || canvas.height !== ch) { canvas.width = cw; canvas.height = ch; }
+    ctx.drawImage(video, 0, 0, cw, ch);
+    const code = jsQR(ctx.getImageData(0, 0, cw, ch).data, cw, ch, { inversionAttempts: "dontInvert" });
+    if (!code) return null;
+    const f = video.videoWidth / cw, L = code.location;
+    const pts = [L.topLeftCorner, L.topRightCorner, L.bottomRightCorner, L.bottomLeftCorner].map((p) => ({ x: p.x * f, y: p.y * f }));
+    return { data: code.data, pts };
+  }
+
+  function onQR(r) {
+    const info = parseQR(r.data);
+    if (!info) { if (state === "scan") hint("Ese QR no es de Tito 🙈 Busca el código de la facultad"); return; }
+    const { pos, d } = worldFromQR(r.pts);
+    if (state === "scan") spawn(pos, d, info.zone);
+    else if (state === "live") place(feet(pos), false); // mientras ves el QR, Tito lo sigue y cambia de tamaño con la distancia
+  }
+
+  async function loop(ts) {
     requestAnimationFrame(loop);
-    if (state === "idle" || ts - lastScan < 110) return;
-    lastScan = ts;
+    if (state === "idle" || busy || ts - lastScan < 90) return;
     if (state === "scan" && hintUntil && performance.now() > hintUntil) {
       hintUntil = 0;
       $("#scan-text").innerHTML = "Apunta la cámara al <b>código QR</b> para despertar a Tito";
     }
     if (!video.srcObject || video.readyState < 2 || !video.videoWidth) return;
-
-    const cw = 640, ch = Math.round((cw * video.videoHeight) / video.videoWidth);
-    if (canvas.width !== cw || canvas.height !== ch) { canvas.width = cw; canvas.height = ch; }
-    ctx.drawImage(video, 0, 0, cw, ch);
-    const code = window.jsQR && jsQR(ctx.getImageData(0, 0, cw, ch).data, cw, ch, { inversionAttempts: "dontInvert" });
-    if (!code) return;
-
-    const info = parseQR(code.data);
-    if (!info) { if (state === "scan") hint("Ese QR no es de Tito 🙈 Busca el código de la facultad"); return; }
-
-    const pos = worldFromQR(code, cw);
-    if (state === "scan") spawn(pos, info.zone);
-    else if (state === "live") { place(pos, false); lastSeen = performance.now(); } // mientras lo veas, Tito sigue al QR; al perderlo se queda fijo
+    lastScan = ts;
+    busy = true;
+    try { const r = await detectQR(); if (r) onQR(r); } finally { busy = false; }
   }
 
   /* ================= Flujo ================= */
-  async function spawn(pos, zone) {
+  let worldScale = AR.scale;
+  const feet = (p) => { p.y -= 0.8 * worldScale; return p; }; // los pies quedan un poco bajo el QR
+
+  async function spawn(pos, d, zone) {
+    // Tamaño real de Tito fijado al aparecer: así, al alejarte se ve más chico y al acercarte, más grande.
+    worldScale = THREE.MathUtils.clamp((AR.scale * d) / AR.refDist, 0.12, 1.5);
     state = "live";
     $("#scan").hidden = true;
     $("#menu").hidden = false;
     $("#btn-rescan").hidden = false;
-    mascotEl.object3D.scale.setScalar(AR.scale);
-    place(pos, true);
+    mascotEl.object3D.scale.setScalar(worldScale);
+    place(feet(pos), true);
     mascotEl.setAttribute("visible", true);
     mascot().appear();
     chime();
@@ -349,7 +369,7 @@
   $("#btn-start").onclick = start;
   $("#btn-summon").onclick = () => {
     if (state !== "scan") return;
-    spawn(worldInFront(), zoneParam);
+    spawn(worldInFront(), AR.refDist, zoneParam);
   };
   $("#btn-rescan").onclick = rescan;
   $("#btn-skip").onclick = () => { const token = cancelAll(); mascot().hideCard(); runTour(tourIdx + 1, token); };

@@ -3,11 +3,12 @@
 // Los textos marcados con VERIFICAR son referenciales: reemplázalos con los datos oficiales de la facultad.
 window.CONTENT = {
   ar: {
-    qrSizeM: 0.10, // tamaño IMPRESO del QR en metros (ajústalo: sirve para estimar a qué distancia sale Tito)
-    scale: 0.55,   // tamaño de Tito
-    minDist: 2.0,  // Tito nunca sale más cerca que esto (para que se vea completo)
-    maxDist: 4.5,
-    camFov: 65,    // campo de visión vertical de la cámara (aprox.)
+    qrSizeM: 0.15,  // tamaño IMPRESO del QR en metros (cámbialo si imprimes otro tamaño: define la distancia estimada)
+    scale: 0.55,    // tamaño de Tito cuando aparece a refDist metros
+    refDist: 2.0,   // distancia "cómoda" a la que Tito se ve con ese tamaño
+    minDist: 0.4,
+    maxDist: 8,
+    camFov: 65,     // campo de visión vertical de la cámara (aprox.)
   },
 
   mascot: {

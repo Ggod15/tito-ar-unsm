@@ -43,7 +43,9 @@
 
       mk(root, "a-circle", { radius: 0.4, rotation: "-90 0 0", position: "0 0.01 0", color: "#000", opacity: 0.25, shader: "flat" });
       mk(root, "a-sphere", { radius: 0.32, position: "0 0.55 0", scale: "1 1.15 0.9", color: FUR });
-      mk(root, "a-sphere", { radius: 0.22, position: "0 0.52 0.2", scale: "1 1.1 0.5", color: BELLY });
+      mk(root, "a-sphere", { radius: 0.17, position: "0 0.86 0.17", scale: "0.9 0.6 0.5", color: BELLY });          // pecho claro
+      mk(root, "a-sphere", { radius: 0.335, position: "0 0.5 0.005", scale: "1.03 0.86 0.95", color: "#1d3557" });  // camiseta
+      mk(root, "a-text", { value: "</>", align: "center", color: "#5eead4", width: 1.25, position: "0 0.5 0.318" }); // emblema
       [-0.15, 0.15].forEach((x) => mk(root, "a-sphere", { radius: 0.12, position: `${x} 0.14 0.05`, scale: "1 1 1.4", color: FUR }));
       mk(root, "a-torus", { radius: 0.28, "radius-tubular": 0.045, arc: 220, position: "-0.05 0.45 -0.3", rotation: "0 90 60", color: FUR, "segments-tubular": 24 });
 
@@ -66,9 +68,15 @@
       [-1, 1].forEach((s) => {
         mk(this.eyes, "a-sphere", { radius: 0.055, position: `${0.095 * s} 0 0.295`, color: "#fff" });
         mk(this.eyes, "a-sphere", { radius: 0.03, position: `${0.095 * s} 0 0.34`, color: "#111" });
+        mk(this.eyes, "a-sphere", { radius: 0.011, position: `${0.095 * s + 0.012} 0.014 0.368`, color: "#fff", shader: "flat" });
       });
       mk(head, "a-sphere", { radius: 0.025, position: "0 -0.02 0.355", scale: "1.4 1 1", color: "#3a2415" });
-      this.mouth = mk(head, "a-sphere", { radius: 0.05, position: "0 -0.1 0.335", scale: "1.7 0.4 0.5", color: "#7a1f1f" });
+      this.mouth = mk(head, "a-sphere", { radius: 0.05, position: "0 -0.115 0.33", scale: "1.5 0.4 0.5", color: "#7a1f1f" });
+      this.smile = mk(head, "a-torus", { radius: 0.075, "radius-tubular": 0.011, arc: 140, position: "0 -0.06 0.35", rotation: "0 0 200", color: "#5a2a1a", "segments-tubular": 16 });
+      [-1, 1].forEach((s) => {
+        mk(head, "a-box", { width: 0.11, height: 0.022, depth: 0.025, position: `${0.1 * s} 0.2 0.3`, rotation: `0 0 ${-14 * s}`, color: "#3a2415" });
+        mk(head, "a-sphere", { radius: 0.05, position: `${0.175 * s} -0.06 0.285`, scale: "1 0.7 0.4", color: "#ff8f6b", material: "opacity: 0.55; transparent: true" });
+      });
 
       const cap = mk(head, "a-entity", { position: "0 0.3 0", rotation: "0 20 0" });
       mk(cap, "a-cylinder", { radius: 0.2, height: 0.12, position: "0 -0.02 0", color: "#1d3557" });
@@ -202,6 +210,7 @@
       // ---- vida ----
       this.head.object3D.rotation.z = Math.sin(t * 1.3) * 0.06;
       this.head.object3D.rotation.y = Math.sin(t * 0.7) * 0.18;
+      this.smile.object3D.visible = !this.speaking;
       this.mouth.object3D.scale.y = this.speaking ? 0.3 + Math.abs(Math.sin(t * 13)) * 0.9 : 0.4;
 
       if (time > this.nextBlink) { this.blinkUntil = time + 130; this.nextBlink = time + 2500 + Math.random() * 2500; }

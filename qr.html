@@ -17,7 +17,8 @@
     .item h3 { margin: 0 0 10px; }
     .qr { display: flex; justify-content: center; }
     small { display: block; margin-top: 8px; color: #556; word-break: break-all; font-size: 11px; }
-    @media print { .bar, h1, p.help { display: none; } body { background: #fff; } }
+    .qr img, .qr canvas { width: var(--qr, 15cm) !important; height: var(--qr, 15cm) !important; max-width: 100%; }
+    @media print { .grid { display: block; } .item { page-break-after: always; box-shadow: none; padding-top: 2cm; } .item small { font-size: 10px; } .bar, h1, p.help { display: none; } body { background: #fff; } }
   </style>
 </head>
 <body>
@@ -25,6 +26,7 @@
   <p class="help">Escribe la URL donde publicaste la página (HTTPS) y genera un QR por zona. Imprímelos y pégalos en cada lugar de la facultad.</p>
   <div class="bar">
     <input id="base" placeholder="https://tu-usuario.github.io/realidad-aumentada/" />
+    <label style="align-self:center">Tamaño impreso (cm) <input id="cm" type="number" min="5" max="40" value="15" style="min-width:0;width:70px;flex:none"></label>
     <button id="go">Generar</button>
     <button id="print">Imprimir</button>
   </div>
@@ -47,9 +49,12 @@
         d.className = "item";
         d.innerHTML = `<h3>${z.icon} ${z.title}</h3><div class="qr"></div><small>${url}</small>`;
         grid.appendChild(d);
-        new QRCode(d.querySelector(".qr"), { text: url, width: 180, height: 180, correctLevel: QRCode.CorrectLevel.M });
+        new QRCode(d.querySelector(".qr"), { text: url, width: 400, height: 400, correctLevel: QRCode.CorrectLevel.M });
       });
     }
+    const cm = document.getElementById("cm");
+    const setCm = () => document.documentElement.style.setProperty("--qr", cm.value + "cm");
+    cm.oninput = setCm; setCm();
     document.getElementById("go").onclick = render;
     document.getElementById("print").onclick = () => window.print();
     render();

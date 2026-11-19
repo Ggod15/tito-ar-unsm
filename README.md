@@ -25,6 +25,5 @@ pega la URL pública y pulsa **Generar**: obtienes un QR por zona (`?s=laborator
 3. Tito explica todo con **voz y subtítulos**; los puntos clave aparecen en una **tarjeta holográfica 3D** sobre él. Hace un recorrido guiado automático (⏭ para saltar tema, menú para elegir uno).
 4. Mientras ves el QR, Tito lo sigue; al apartar la cámara **se queda fijo** en el lugar donde apareció (giroscopio). 🔄 vuelve a escanear.
 
-Limitación: es anclaje por giroscopio (3 grados de libertad): si giras o inclinas el celular, Tito se queda en su sitio;
-si caminas hacia atrás no cambia de tamaño (eso requeriría WebXR/ARCore, que no funciona en iPhone).
+Limitación: el tamaño cambia mientras la cámara VEA el QR (mide su tamaño aparente = distancia). Si lo pierdes de vista, Tito se queda en el último punto (giroscopio). Para verlo desde más lejos imprime el QR más grande (qr.html) y ajusta `ar.qrSizeM` en js/content.js.
 Ajustes en `js/content.js` → `ar` (tamaño impreso del QR, tamaño y distancia de Tito).
