@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Generador de QR · Tito AR</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="js/content.js"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 20px; background: #f4f7f9; color: #0b1d2a; }
+    h1 { margin-top: 0; }
+    .bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
+    input { flex: 1; min-width: 240px; padding: 10px; font-size: 16px; border: 1px solid #b8c7d1; border-radius: 8px; }
+    button { padding: 10px 16px; font-size: 16px; border: 0; border-radius: 8px; background: #0f766e; color: #fff; cursor: pointer; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+    .item { background: #fff; border-radius: 14px; padding: 16px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,.08); break-inside: avoid; }
+    .item h3 { margin: 0 0 10px; }
+    .qr { display: flex; justify-content: center; }
+    small { display: block; margin-top: 8px; color: #556; word-break: break-all; font-size: 11px; }
+    @media print { .bar, h1, p.help { display: none; } body { background: #fff; } }
+  </style>
+</head>
+<body>
+  <h1>🐒 Códigos QR de Tito</h1>
+  <p class="help">Escribe la URL donde publicaste la página (HTTPS) y genera un QR por zona. Imprímelos y pégalos en cada lugar de la facultad.</p>
+  <div class="bar">
+    <input id="base" placeholder="https://tu-usuario.github.io/realidad-aumentada/" />
+    <button id="go">Generar</button>
+    <button id="print">Imprimir</button>
+  </div>
+  <div class="grid" id="grid"></div>
+
+  <script>
+    const base = document.getElementById("base");
+    base.value = localStorage.getItem("qrbase") || (location.protocol.startsWith("http") ? location.origin + location.pathname.replace(/qr\.html$/, "") : "");
+    function render() {
+      let b = base.value.trim();
+      if (!b) return;
+      if (!b.endsWith("/")) b += "/";
+      localStorage.setItem("qrbase", b);
+      const grid = document.getElementById("grid");
+      grid.innerHTML = "";
+      const zones = [{ id: "", icon: "🐒", title: "Entrada / General" }, ...CONTENT.sections];
+      zones.forEach((z) => {
+        const url = b + (z.id ? "?s=" + z.id : "");
+        const d = document.createElement("div");
+        d.className = "item";
+        d.innerHTML = `<h3>${z.icon} ${z.title}</h3><div class="qr"></div><small>${url}</small>`;
+        grid.appendChild(d);
+        new QRCode(d.querySelector(".qr"), { text: url, width: 180, height: 180, correctLevel: QRCode.CorrectLevel.M });
+      });
+    }
+    document.getElementById("go").onclick = render;
+    document.getElementById("print").onclick = () => window.print();
+    render();
+  </script>
+</body>
+</html>
