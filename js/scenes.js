@@ -117,7 +117,7 @@ window.SceneKit = (function () {
         core.rotation.y = time; core.rotation.x = time * 0.6;
         cards.forEach((m, i) => {
           const a = time * 0.55 + (i * Math.PI * 2) / n;
-          m.position.set(Math.cos(a) * 0.52, 0.95 + Math.sin(time * 1.3 + i) * 0.05, Math.sin(a) * 0.52);
+          m.position.set(Math.cos(a) * 0.42, 0.95 + Math.sin(time * 1.3 + i) * 0.05, Math.sin(a) * 0.42);
           const on = focus.length ? focus.includes(i) : true;
           const target = focus.length ? (on ? 1.45 : 0.7) : 1;
           const s = m.scale.x + (target - m.scale.x) * 0.12;

@@ -8,7 +8,9 @@
   const easeOutBack = (x) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
   const easeOutCubic = (x) => 1 - Math.pow(1 - x, 3);
   const FONT = "system-ui, 'Segoe UI', Roboto, 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif";
-  const SIDE = 0.55;          // cuánto se corre Byte (y cuánto se aparta la escena) cuando hay escena o botones
+  const SIDE = 0.4;           // cuánto se corre Byte a un lado cuando hay escena o botones (pantallas verticales angostas)
+  const SCENE_X = -0.42;       // posición de la escena / botones a su lado
+  const SCENE_S = 0.85;       // escala de la escena
   const DUR = { jump: 900, spin: 900, dance: 3200, no: 800 };
 
   proto.init = function () {
@@ -34,7 +36,7 @@
     this.hideScene(true);
     const s = SceneKit.create(type, data);
     if (!s) return;
-    s.group.position.set(-SIDE, 0, 0.1);
+    s.group.position.set(SCENE_X, 0, 0.1);
     s.group.scale.setScalar(0.001);
     this.el.object3D.add(s.group);
     this.sceneObj = s; this.sceneT0 = performance.now(); this.sceneOut = 0;
@@ -89,7 +91,7 @@
       mesh.renderOrder = 12;
       mesh.userData = { choice: i, cv, tex: t, txt, letter: opts.letters === false ? null : "ABC"[i], press: 0 };
       drawChoice(mesh, "idle");
-      mesh.position.set(-SIDE - 0.05, 1.5 - i * 0.4, 0.15);
+      mesh.position.set(SCENE_X - 0.02, 1.5 - i * 0.4, 0.15);
       mesh.scale.setScalar(0.001);
       this.el.object3D.add(mesh);
       this.choices.push(mesh);
@@ -167,7 +169,7 @@
         sc = 1 - clamp(p, 0, 1);
         if (p >= 1) { this.el.object3D.remove(s.group); s.dispose(); this.sceneObj = null; this.sceneOut = 0; if (!this.choices.length) this.slideTarget = 0; return; }
       } else sc = easeOutBack(clamp((now - this.sceneT0) / 450, 0, 1));
-      s.group.scale.setScalar(Math.max(0.001, sc));
+      s.group.scale.setScalar(Math.max(0.001, sc) * SCENE_S);
       s.update(t, now, cam, dt);
     }
 
