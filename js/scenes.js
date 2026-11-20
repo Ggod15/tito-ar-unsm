@@ -36,7 +36,7 @@ window.SceneKit = (function () {
       x.fillStyle = "#fff"; x.font = `700 44px ${FONT}`; x.textAlign = "center"; x.textBaseline = "middle";
       x.fillText(text, W / 2, H / 2 + 2);
     });
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, w * 0.26), new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false }));
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, w * 0.26), new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false, depthTest: false }));
     m.renderOrder = 8; m.userData.bill = true;
     return m;
   }
@@ -52,7 +52,7 @@ window.SceneKit = (function () {
       x.font = `700 32px ${FONT}`; x.fillStyle = "#fff";
       x.fillText(text, W / 2, 232);
     });
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.42), new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false }));
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.42), new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false, depthTest: false }));
     m.renderOrder = 7; m.userData.bill = true;
     return m;
   }
@@ -213,13 +213,13 @@ window.SceneKit = (function () {
     // gabinete (se vuelve transparente)
     const caseMat = std(DPUR, { transparent: true, opacity: 1 });
     const pcase = box(0.2, 0.44, 0.38, caseMat);
-    add(pcase, new V3(0.36, 0.3, 0), new V3(0.4, 0.3, 0), "Gabinete");
+    add(pcase, new V3(0.3, 0.3, 0), new V3(0.3, 0.3, 0), "Gabinete");
     // teclado
     add(box(0.42, 0.02, 0.14, std(BLK)), new V3(-0.1, 0.1, 0.22), new V3(-0.18, 0.06, 0.42), null);
     // componentes internos (salen del gabinete)
-    const inner = new V3(0.36, 0.3, 0);
+    const inner = new V3(0.3, 0.3, 0);
     const mobo = box(0.26, 0.016, 0.26, std(0x2d1b69)); const chip = box(0.06, 0.02, 0.06, std(BLK)); chip.position.set(0.04, 0.016, 0.03); mobo.add(chip);
-    add(mobo, inner.clone(), new V3(0.42, 1.0, 0.05), "Placa madre");
+    add(mobo, inner.clone(), new V3(0.3, 1.0, 0.05), "Placa madre");
     const cpu = box(0.08, 0.025, 0.08, std(BLK)); const gold = box(0.09, 0.008, 0.09, std(GOLD, { metalness: 0.6 })); gold.position.y = -0.016; cpu.add(gold);
     add(cpu, inner.clone(), new V3(-0.34, 0.78, 0.1), "CPU");
     const ram = new THREE.Group(); [0, 1].forEach((k) => { const s = box(0.014, 0.1, 0.06, std(0x1f7a4c)); s.position.x = k * 0.04; ram.add(s); });
@@ -270,7 +270,7 @@ window.SceneKit = (function () {
         pc.scale.setScalar(Math.max(0.001, pc.scale.x + (pcT - pc.scale.x) * k));
         net.scale.setScalar(Math.max(0.001, net.scale.x + (netT - net.scale.x) * k));
         pc.visible = pc.scale.x > 0.01; net.visible = net.scale.x > 0.01;
-        g.rotation.y = Math.sin(time * 0.5) * 0.4;
+        g.rotation.y = Math.sin(time * 0.5) * 0.22;
 
         if (pc.visible) {
           const age = (now - t0) / 1000;

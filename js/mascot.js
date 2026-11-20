@@ -195,6 +195,7 @@
         if (r.first && lines.length > 1) { ctx.fillStyle = "#f4c430"; ctx.fillText("•", pad, y); ctx.fillStyle = "#f5f0ff"; }
         ctx.fillText(r.t, pad + 26, y);
       });
+      if (this.cardLastH !== H) { this.cardTex.dispose(); this.cardLastH = H; } // al cambiar de tamaño la textura se recrea (si no, quedan restos)
       this.cardTex.needsUpdate = true;
       this.cardH = H / W;
       this.card.position.set(0, 2.2 + (1.5 * this.cardH) / 2, 0);

@@ -18,7 +18,8 @@
   let speaking = false;
   let tour = 0;       // token: al cambiarlo se cancela lo que Byte estaba explicando
   let tourIdx = 0;
-  let answerResolve = null;
+  let choiceResolve = null;   // promesa pendiente de una respuesta con botones 3D
+  let userMult = 1;           // tamaño extra que da el usuario al pellizcar
   let fallbackTimer = null;
   const zoneParam = new URLSearchParams(location.search).get("s");
 
@@ -86,20 +87,26 @@
   function cancelAll() {
     tour++;
     stopSpeech();
-    if (answerResolve) { answerResolve(-1); answerResolve = null; }
+    if (choiceResolve) { const r = choiceResolve; choiceResolve = null; r(-1); }
+    if (mascot()) { mascot().hideChoices(true); mascot().hideScene(true); }
     $("#answers").hidden = true;
     return tour;
   }
 
   async function playSection(s, token) {
-    for (const part of s.parts) {
+    if (s.scene) mascot().showScene(s.scene, s);          // escena 3D de la zona, junto a Byte
+    for (let i = 0; i < s.parts.length; i++) {
       if (token !== tour) return false;
+      const part = s.parts[i];
+      mascot().sceneStage(part.stage !== undefined ? part.stage : i, part);
       mascot().showCard(`${s.icon} ${s.title}`, part.lines);
       await say(part.say);
       if (token !== tour) return false;
       await sleep(350);
     }
-    return token === tour;
+    if (token !== tour) return false;
+    mascot().hideScene();
+    return true;
   }
 
   async function runTour(from, token) {
@@ -109,45 +116,76 @@
       if (!(await playSection(tourList[i], token))) return;
     }
     mascot().hideCard();
+    await offerTrivia(token);
+    if (token !== tour) return;
     await say(C.mascot.outro);
     if (token !== tour) return;
     await sleep(300);
     leave(token);
   }
 
-  function waitAnswer() { return new Promise((r) => (answerResolve = r)); }
+  /* ---- Respuestas con botones 3D flotando junto a Byte (en AR real también hay botones normales de respaldo) ---- */
+  function answer(k) { if (!choiceResolve) return; const r = choiceResolve; choiceResolve = null; r(k); }
+
+  function hideChoicesUI() { mascot().hideChoices(true); $("#answers").hidden = true; }
+
+  function ask(labels, timeoutMs) {
+    return new Promise((resolve) => {
+      let timer = null;
+      choiceResolve = (k) => { clearTimeout(timer); resolve(k); };
+      mascot().showChoices(labels);
+      if (mode === "xr") {
+        const box = $("#answers");
+        box.innerHTML = "";
+        labels.forEach((t, k) => {
+          const b = document.createElement("button");
+          b.textContent = t;
+          b.onclick = () => answer(k);
+          b.addEventListener("beforexrselect", (e) => e.preventDefault());
+          box.appendChild(b);
+        });
+        box.hidden = false;
+      }
+      if (timeoutMs) timer = setTimeout(() => answer(-2), timeoutMs);
+    });
+  }
+
+  // Al terminar el recorrido Byte propone la trivia con dos botones 3D
+  async function offerTrivia(token) {
+    const s = sec("trivia");
+    if (!s) return;
+    mascot().showCard("\u{1F3AE} Trivia", ["¿Jugamos?"]);
+    const p = ask(["¡Sí, jugar!", "No, gracias"], 14000);
+    say("Antes de irme, ¿te animas a jugar una trivia? Toca un botón.");
+    const k = await p;
+    if (token !== tour || k === -1) return;
+    hideChoicesUI();
+    if (k === 0) await playQuiz(s, token); else mascot().hideCard();
+  }
 
   async function playQuiz(s, token) {
     mascot().showCard(`${s.icon} ${s.title}`, ["¡Responde las preguntas!"]);
     await say(s.intro);
     let score = 0;
-    const box = $("#answers");
     for (let i = 0; i < s.questions.length; i++) {
       if (token !== tour) return;
       const q = s.questions[i];
       mascot().showCard(`Pregunta ${i + 1} de ${s.questions.length}`, [q.q]);
-      box.innerHTML = "";
-      q.o.forEach((txt, k) => {
-        const b = document.createElement("button");
-        b.textContent = txt;
-        b.dataset.k = k;
-        b.onclick = () => { if (answerResolve) { const r = answerResolve; answerResolve = null; r(k); } };
-        box.appendChild(b);
-      });
-      box.hidden = false;
-      const p = waitAnswer();
+      const p = ask(q.o);
       say(q.q);
       const k = await p;
       if (token !== tour || k < 0) return;
-      box.querySelectorAll("button").forEach((b) => (b.disabled = true));
-      box.querySelector(`[data-k="${q.a}"]`).classList.add("ok");
-      if (k === q.a) { score++; mascot().wave(1200); } else box.querySelector(`[data-k="${k}"]`).classList.add("bad");
+      mascot().markChoices(k, q.a);
+      if (k === q.a) { score++; mascot().react("jump"); } else mascot().react("no");
       await say(k === q.a ? "¡Correcto!" : `Casi. La respuesta era: ${q.o[q.a]}.`);
-      box.hidden = true;
+      if (token !== tour) return;
+      await sleep(250);
+      hideChoicesUI();
     }
     if (token !== tour) return;
     const n = s.questions.length;
-    mascot().showCard("🏆 Resultado", [`Lograste ${score} de ${n}`]);
+    mascot().showCard("\u{1F3C6} Resultado", [`Lograste ${score} de ${n}`]);
+    mascot().react(score >= 3 ? "dance" : "jump");
     mascot().wave(2500);
     await say(score === n ? "¡Perfecto! Eres un verdadero ingeniero de sistemas." : score >= 3 ? "¡Muy bien! Casi perfecto." : "¡Buen intento! Ven a estudiar con nosotros y lo dominas.");
     if (token !== tour) return;
@@ -269,7 +307,8 @@
 
   /* ================= Flujo ================= */
   let worldScale = AR.scale;
-  const feet = (p) => { p.y -= 0.8 * worldScale; return p; }; // los pies quedan un poco bajo el QR
+  const curScale = () => worldScale * userMult;
+  const feet = (p) => { p.y -= 0.8 * curScale(); return p; }; // los pies quedan un poco bajo el QR
 
   const qrAnchor = new THREE.Vector3();   // punto del mundo donde esta el QR (Byte se queda aqui)
   let liveTick = 0;
@@ -302,7 +341,7 @@
     qrAnchor.copy(camP).addScaledVector(dir, ra);
     camEl.object3D.position.addScaledVector(dir, (ra - rm) * 0.35);
     const o = mascotEl.object3D.position;
-    o.copy(qrAnchor); o.y -= 0.8 * worldScale;
+    o.copy(qrAnchor); o.y -= 0.8 * curScale();
   }
 
   // Byte gira suavemente para seguir mirandote
@@ -315,6 +354,7 @@
   }
 
   async function spawn(pos, d, zone) {
+    userMult = 1;
     // Tamaño real de Byte fijado al aparecer: así, al alejarte se ve más chico y al acercarte, más grande.
     worldScale = THREE.MathUtils.clamp((AR.scale * d) / AR.refDist, 0.12, 1.5);
     state = "live";
@@ -328,6 +368,20 @@
     return runIntro(zone);
   }
 
+  // Vista previa fija para ensayar: ?demo=universidad|carrera|malla|laboratorios|laboral|contacto|trivia  (&stage=N para elegir etapa)
+  const qs = new URLSearchParams(location.search);
+  const demoKind = qs.get("demo");
+  function runDemo() {
+    const s = sec(demoKind);
+    if (!s) return;
+    if (s.quiz) { mascot().showCard("\u{1F3AE} Trivia", ["Demo de botones 3D"]); ask(s.questions[0].o).then((k) => { mascot().markChoices(k, s.questions[0].a); mascot().react(k === s.questions[0].a ? "jump" : "no"); }); return; }
+    const st = parseInt(qs.get("stage") || "0", 10);
+    const part = s.parts[Math.min(st, s.parts.length - 1)];
+    if (s.scene) { mascot().showScene(s.scene, s); mascot().sceneStage(st, part); }
+    mascot().showCard(`${s.icon} ${s.title}`, part.lines);
+    mascot().wave(1500);
+  }
+
   // Aparicion de Byte + explicacion (la usan el modo QR y el modo AR real)
   async function runIntro(zone) {
     $("#btn-rescan").hidden = false;
@@ -339,9 +393,20 @@
     const token = cancelAll();
     await sleep(1900);
     if (token !== tour) return;
+    if (demoKind) { runDemo(); return; }
     mascot().wave(2800);
+    showTip();
     const s = zone && sec(zone);
-    if (s && !s.quiz) {
+    if (s && s.quiz) {
+      await say(`¡Hola! Soy ${C.mascot.name}.`);
+      if (token !== tour) return;
+      await playQuiz(s, token);
+      if (token !== tour) return;
+      await say(C.mascot.outro);
+      if (token !== tour) return;
+      await sleep(300);
+      leave(token);
+    } else if (s) {
       await say(`¡Hola! Soy ${C.mascot.name}.`);
       if (token !== tour) return;
       if (!(await playSection(s, token))) return;
@@ -378,6 +443,8 @@
   function rescan() {
     cancelAll();
     mascot().hide();
+    userMult = 1;
+    $("#tip").hidden = true;
     mascotEl.setAttribute("visible", false);
     $("#subtitle").hidden = true;
     $("#btn-rescan").hidden = true;
@@ -423,6 +490,89 @@
     $("#hud").hidden = false;
     $("#scan").hidden = false;
     state = "scan";
+  }
+
+  /* ================= Gestos: tocar, girar con un dedo, pellizcar =================
+     Tocar a Byte -> salto / baile / giro. Arrastrar sobre Byte -> lo giras. Pellizcar (o la rueda del mouse) -> lo agrandas o achicas.
+     Tocar un botón 3D -> respuesta. */
+  const ray = new THREE.Raycaster();
+  const ptrs = new Map();
+  let gest = null;
+  const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+  const applyScale = () => mascotEl.object3D.scale.setScalar(curScale());
+  const interactive = () => (state === "live" || state === "xr-live") && mascot().active && !mascot().vanishing;
+  const lookMouse = (on) => camEl.setAttribute("look-controls", "mouseEnabled", on);
+
+  function pickWithRay() {
+    const hits = ray.intersectObjects(mascot().pickList(), false);
+    if (!hits.length) return null;
+    const o = hits[0].object;
+    return o.userData && o.userData.choice !== undefined ? { kind: "choice", index: o.userData.choice } : { kind: "byte" };
+  }
+  function pickAt(x, y) {
+    const r = scene.canvas.getBoundingClientRect();
+    ray.setFromCamera({ x: ((x - r.left) / r.width) * 2 - 1, y: -((y - r.top) / r.height) * 2 + 1 }, scene.camera);
+    return pickWithRay();
+  }
+  function handleHit(hit) {
+    if (!hit) return;
+    if (hit.kind === "choice") { mascot().pressChoice(hit.index); answer(hit.index); }
+    else mascotEl.emit("mascot-tap");
+  }
+
+  function onDown(e) {
+    if (!interactive()) return;
+    ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, t: performance.now() });
+    if (ptrs.size === 1) {
+      gest = { hit: pickAt(e.clientX, e.clientY), moved: false, pinch: false };
+      if (gest.hit && gest.hit.kind === "byte") lookMouse(false);
+    } else if (ptrs.size === 2) {
+      const [a, b] = [...ptrs.values()];
+      gest = { pinch: true, moved: true, d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, m0: userMult };
+      lookMouse(false);
+    }
+  }
+  function onMove(e) {
+    const p = ptrs.get(e.pointerId);
+    if (!p || !gest) return;
+    const dx = e.clientX - p.x;
+    p.x = e.clientX; p.y = e.clientY;
+    if (Math.hypot(e.clientX - p.sx, e.clientY - p.sy) > 8) gest.moved = true;
+    if (gest.pinch && ptrs.size >= 2) {
+      const [a, b] = [...ptrs.values()];
+      userMult = clamp(gest.m0 * (Math.hypot(a.x - b.x, a.y - b.y) / gest.d0), 0.4, 2.2);
+      applyScale();
+    } else if (gest.hit && gest.hit.kind === "byte" && gest.moved) mascot().dragYaw(dx * 0.012);
+  }
+  function onUp(e) {
+    const p = ptrs.get(e.pointerId);
+    ptrs.delete(e.pointerId);
+    if (!p || !gest) return;
+    if (!gest.pinch && !gest.moved && performance.now() - p.t < 450) handleHit(gest.hit);
+    if (!ptrs.size) { gest = null; lookMouse(true); }
+  }
+  function onWheel(e) {
+    if (!interactive()) return;
+    userMult = clamp(userMult * (e.deltaY < 0 ? 1.08 : 0.92), 0.4, 2.2);
+    applyScale();
+  }
+  function bindGestures() {
+    const el = scene.canvas;
+    el.style.touchAction = "none";
+    el.addEventListener("pointerdown", onDown);
+    el.addEventListener("pointermove", onMove);
+    el.addEventListener("pointerup", onUp);
+    el.addEventListener("pointercancel", onUp);
+    el.addEventListener("wheel", onWheel, { passive: true });
+  }
+  if (scene.hasLoaded) bindGestures(); else scene.addEventListener("loaded", bindGestures);
+
+  let tipTimer = null;
+  function showTip() {
+    const t = $("#tip");
+    t.hidden = false;
+    clearTimeout(tipTimer);
+    tipTimer = setTimeout(() => { t.hidden = true; }, 8000);
   }
 
   /* ================= AR real con WebXR (Android + Chrome) =================
@@ -472,8 +622,20 @@
     return camP.clone().add(fwd.multiplyScalar(1.8)).setY(Math.max(0, camP.y - 1.3));
   }
 
-  function onSelect() {
-    if (mode !== "xr" || state !== "xr-find") return;
+  function onSelect(evt) {
+    if (mode !== "xr") return;
+    if (state === "xr-live") {                      // toque sobre un botón 3D o sobre Byte (rayo del dedo en WebXR)
+      const frame = evt && evt.frame, src = evt && evt.inputSource;
+      if (!frame || !src || !src.targetRaySpace || !interactive()) return;
+      const pose = frame.getPose(src.targetRaySpace, scene.renderer.xr.getReferenceSpace());
+      if (!pose) return;
+      const m = new THREE.Matrix4().fromArray(pose.transform.matrix);
+      ray.set(new THREE.Vector3().setFromMatrixPosition(m), new THREE.Vector3(0, 0, -1).transformDirection(m));
+      handleHit(pickWithRay());
+      return;
+    }
+    if (state !== "xr-find") return;
+    userMult = 1;
     const p = hitFound ? hitPos.clone() : fallbackFloor();
     state = "xr-live";
     xrHint("");
@@ -549,10 +711,7 @@
     if (muted) { stopSpeech(); }
   };
   let fact = 0;
-  mascotEl.addEventListener("mascot-tap", () => {
-    mascot().wave(1800);
-    if (!speaking) say(C.mascot.funFacts[fact++ % C.mascot.funFacts.length]);
-  });
+  mascotEl.addEventListener("mascot-tap", () => mascot().react());
 
   requestAnimationFrame(loop);
 })();

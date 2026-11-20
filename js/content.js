@@ -100,3 +100,29 @@ window.CONTENT = {
     },
   ],
 };
+
+// ---- Escenas 3D de cada zona y qué se resalta mientras Byte habla ----
+(function () {
+  const S = (id) => CONTENT.sections.find((s) => s.id === id);
+  S("universidad").scene = "logo";
+  S("contacto").scene = "logo";
+
+  S("carrera").scene = "orbit";
+  S("carrera").items = [
+    { i: "\u2699\uFE0F", t: "Software" }, { i: "\u{1F310}", t: "Redes" }, { i: "\u{1F5C4}\uFE0F", t: "Datos" },
+    { i: "\u{1F510}", t: "Seguridad" }, { i: "\u{1F4CA}", t: "Gesti\u00f3n TI" },
+  ];
+  S("carrera").parts[1].focus = [0, 1];
+  S("carrera").parts[2].focus = [2, 3, 4];
+
+  S("malla").scene = "tower";            // etapas: 0 intro, 1 ciclos I-III, 2 IV-VI, 3 VII-IX, 4 ciclo X
+  S("laboratorios").scene = "lab";       // etapa 0: PC que se desarma, etapa 1: red con paquetes
+
+  S("laboral").scene = "orbit";
+  S("laboral").items = [
+    { i: "\u{1F468}\u200D\u{1F4BB}", t: "Desarrollo" }, { i: "\u{1F310}", t: "Redes" }, { i: "\u{1F6E1}\uFE0F", t: "Ciberseg." },
+    { i: "\u{1F4C8}", t: "Datos e IA" }, { i: "\u{1F5C2}\uFE0F", t: "Gesti\u00f3n TI" }, { i: "\u{1F4A1}", t: "Emprender" },
+  ];
+  S("laboral").parts[0].focus = [0, 1, 2];
+  S("laboral").parts[1].focus = [3, 4, 5];
+})();

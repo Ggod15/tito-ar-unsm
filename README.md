@@ -39,3 +39,13 @@ Para probar la lógica en PC sin teléfono: añade `?xrmock=1` a la dirección.
 Con eso se mueve una cámara virtual hacia adelante/atrás, así Byte se ve más grande o más chico aunque el QR ya no esté a la vista.
 Cuando el QR vuelve a verse, se corrige la deriva. Limitaciones: necesita una escena con algo de textura (no una pared lisa), y solo estima el
 avance hacia adelante/atrás (no el desplazamiento lateral).
+
+## Interacción y escenas 3D
+- **Escenas 3D por zona** (`js/scenes.js`): logo girando (UNSM y contacto), íconos de carreras/áreas orbitando (carrera y campo laboral; Byte resalta los que nombra),
+  torre de 10 pisos para la malla (resalta los ciclos que nombra) y laboratorio (PC que se desarma + red con paquetes viajando).
+  Qué escena usa cada zona y qué se resalta se configura al final de `js/content.js`.
+- **Trivia con botones 3D**: al terminar el recorrido Byte ofrece jugar; las respuestas son botones que flotan a su lado y se tocan.
+  También se puede entrar directo con el QR `?s=trivia`. Acertar -> salta; fallar -> niega con la cabeza.
+- **Gestos sobre Byte** (`js/mascot-extras.js` + `js/app.js`): tocarlo -> salto, baile o giro; arrastrar sobre él -> lo giras (vuelve a mirarte solo);
+  pellizcar con dos dedos (o rueda del mouse en PC) -> lo agrandas o achicas.
+- **Vista previa para ensayar**: `?demo=malla&stage=2`, `?demo=laboratorios&stage=1`, `?demo=carrera`, `?demo=trivia`... muestra una escena fija sin voz ni recorrido.
