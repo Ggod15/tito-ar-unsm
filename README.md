@@ -49,3 +49,10 @@ avance hacia adelante/atrás (no el desplazamiento lateral).
 - **Gestos sobre Byte** (`js/mascot-extras.js` + `js/app.js`): tocarlo -> salto, baile o giro; arrastrar sobre él -> lo giras (vuelve a mirarte solo);
   pellizcar con dos dedos (o rueda del mouse en PC) -> lo agrandas o achicas.
 - **Vista previa para ensayar**: `?demo=malla&stage=2`, `?demo=laboratorios&stage=1`, `?demo=carrera`, `?demo=trivia`... muestra una escena fija sin voz ni recorrido.
+
+## AR simulado para teléfonos sin ARCore (piso estimado)
+Si el teléfono no usa AR real, la experiencia imita a ARCore sin tenerlo: **nube de puntos** sobre los rasgos reales de la imagen (los que sigue `motion.js`),
+**reconocimiento del piso** (círculo guía + malla de puntos que se expande) y **colocación con un toque**; Byte queda parado en el piso.
+El piso se *estima*: con el giroscopio se sabe a dónde mira la cámara y, suponiendo ~1,4 m de altura del teléfono, el cruce de la mirada con el suelo da el punto
+(se activa al apuntar entre ~20° y ~57° hacia abajo). Sigue funcionando el QR (si se ve, Byte aparece en el QR) y el botón «invocar».
+Para ensayarlo en PC sin cámara: `?floor=1`.

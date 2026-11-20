@@ -12,6 +12,7 @@ window.MotionEstimator = (function () {
   const cv = document.createElement("canvas");
   const ctx = cv.getContext("2d", { willReadFrequently: true });
   let H = 0, ref = null, age = 0, grid = [];
+  let cloud = [], cloudT = 0;   // puntos con textura que se estan siguiendo (para dibujarlos como nube de puntos)
 
   function buildGrid() {
     grid = [];
@@ -58,6 +59,16 @@ window.MotionEstimator = (function () {
       }
       const n = P * P;
       if (s2 / n - (s / n) * (s / n) < MIN_VAR) continue;
+      // punto "de rasgo": el píxel con mayor contraste local dentro del parche (para dibujar una nube de puntos natural)
+      let fx = cx, fy = cy, fg = -1;
+      for (let y = -half + 1; y < half - 1; y++) {
+        for (let x = -half + 1; x < half - 1; x++) {
+          const gx = p0[(cy + y) * W + cx + x + 1] - p0[(cy + y) * W + cx + x - 1];
+          const gy = p0[(cy + y + 1) * W + cx + x] - p0[(cy + y - 1) * W + cx + x];
+          const gm = gx * gx + gy * gy;
+          if (gm > fg) { fg = gm; fx = cx + x; fy = cy + y; }
+        }
+      }
 
       let best = 1e12, bdx = 0, bdy = 0;
       for (let dy = -R; dy <= R; dy++) {
@@ -70,8 +81,9 @@ window.MotionEstimator = (function () {
           if (ssd < best) { best = ssd; bdx = dx; bdy = dy; }
         }
       }
-      flows.push([cx - W / 2, cy - H / 2, bdx, bdy]);
+      flows.push([cx - W / 2, cy - H / 2, bdx, bdy, fx, fy]);
     }
+    cloud = flows.map((f) => [f[4] / W, f[5] / H]); cloudT = performance.now();
     if (flows.length < 10) return null;
 
     const mdx = median(flows.map((f) => f[2]));
@@ -90,5 +102,5 @@ window.MotionEstimator = (function () {
     return null;
   }
 
-  return { step, reset };
+  return { step, reset, points: () => ({ pts: cloud, t: cloudT }) };
 })();

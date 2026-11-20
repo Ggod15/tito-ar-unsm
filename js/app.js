@@ -244,6 +244,11 @@
   let bdOk = !!bd;
   let lastScan = 0, hintUntil = 0, busy = false;
   let needClear = false, lastQrSeen = 0; // tras irse, Byte no reaparece hasta que el QR salga de la vista
+  let floorEnabled = false, lastFloorMsg = "";   // "AR simulado": piso estimado con el giroscopio (sin ARCore)
+  function resetScanText() {
+    if (floorEnabled) lastFloorMsg = "";
+    else $("#scan-text").innerHTML = "Apunta la cámara al <b>código QR</b> para despertar a Byte";
+  }
 
   function parseQR(data) {
     try {
@@ -281,7 +286,7 @@
     if (!info) { if (state === "scan") hint("Ese QR no es de Byte 🙈 Busca el código de la facultad"); return; }
     const { pos, d } = worldFromQR(r.pts);
     if (state === "scan") spawn(pos, d, info.zone);
-    else if (state === "live") refine(pos); // con el QR a la vista se corrige la posicion
+    else if (state === "live" && anchorFromQR) refine(pos); // con el QR a la vista se corrige la posicion
   }
 
   async function loop(ts) {
@@ -289,18 +294,19 @@
     if (state === "idle" || busy || ts - lastScan < 90) return;
     if (state === "scan" && hintUntil && performance.now() > hintUntil) {
       hintUntil = 0;
-      $("#scan-text").innerHTML = "Apunta la cámara al <b>código QR</b> para despertar a Byte";
+      resetScanText();
     }
     if (!video.srcObject || video.readyState < 2 || !video.videoWidth) return;
     lastScan = ts;
     if (state === "live") { liveTick++; motionStep(); turnToCamera(); if (liveTick % 3) return; } // QR cada 3 cuadros
+    else if (state === "scan" && floorEnabled && window.MotionEstimator) MotionEstimator.step(video); // alimenta la nube de puntos
     busy = true;
     try {
       const r = await detectQR();
       if (r) { if (needClear) lastQrSeen = performance.now(); else onQR(r); }
       else if (needClear && performance.now() - lastQrSeen > 1600) {
         needClear = false;
-        $("#scan-text").innerHTML = "Apunta la cámara al <b>código QR</b> para despertar a Byte";
+        resetScanText();
       }
     } finally { busy = false; }
   }
@@ -310,7 +316,8 @@
   const curScale = () => worldScale * userMult;
   const feet = (p) => { p.y -= 0.8 * curScale(); return p; }; // los pies quedan un poco bajo el QR
 
-  const qrAnchor = new THREE.Vector3();   // punto del mundo donde esta el QR (Byte se queda aqui)
+  const qrAnchor = new THREE.Vector3();
+  let anchorFromQR = true;                // si el ancla viene del QR se corrige con él; si viene del piso, no   // punto del mundo donde esta el QR (Byte se queda aqui)
   let liveTick = 0;
 
   // Acercar/alejar sin ARCore: la expansion de los puntos de la imagen mueve una camara virtual hacia adelante/atras.
@@ -355,6 +362,7 @@
 
   async function spawn(pos, d, zone) {
     userMult = 1;
+    anchorFromQR = true;
     // Tamaño real de Byte fijado al aparecer: así, al alejarte se ve más chico y al acercarte, más grande.
     worldScale = THREE.MathUtils.clamp((AR.scale * d) / AR.refDist, 0.12, 1.5);
     state = "live";
@@ -436,7 +444,7 @@
       if (mode === "xr") { xrHint("¡Hasta pronto! 👋 Toca la pantalla para llamar a Byte otra vez"); return; }
       needClear = true;
       lastQrSeen = performance.now();
-      $("#scan-text").innerHTML = "¡Hasta pronto! 👋 Aleja la cámara del QR y vuelve a apuntar para llamar a Byte otra vez";
+      $("#scan-text").innerHTML = "¡Hasta pronto! 👋 Para llamarme otra vez, apunta al piso y toca la pantalla (o vuelve a apuntar a un QR)";
     });
   }
 
@@ -489,6 +497,9 @@
     $("#splash").classList.add("gone");
     $("#hud").hidden = false;
     $("#scan").hidden = false;
+    floorEnabled = camOk || qs.get("floor") === "1";
+    $("#scan").classList.toggle("floor", floorEnabled);
+    if (floorEnabled) lastFloorMsg = "";
     state = "scan";
   }
 
@@ -562,6 +573,8 @@
     el.addEventListener("pointerdown", onDown);
     el.addEventListener("pointermove", onMove);
     el.addEventListener("pointerup", onUp);
+    el.addEventListener("pointerdown", floorDown);
+    el.addEventListener("pointerup", floorUp);
     el.addEventListener("pointercancel", onUp);
     el.addEventListener("wheel", onWheel, { passive: true });
   }
@@ -573,6 +586,135 @@
     t.hidden = false;
     clearTimeout(tipTimer);
     tipTimer = setTimeout(() => { t.hidden = true; }, 8000);
+  }
+
+  /* ================= "AR simulado": piso estimado SIN ARCore =================
+     Sin ARCore no se puede reconocer el piso de verdad, pero se puede estimar: con el giroscopio se sabe hacia dónde apunta la cámara y,
+     suponiendo que el teléfono está a ~1,4 m del suelo, el cruce de la mirada con el plano del piso da un punto de piso creíble.
+     Sobre eso se reproduce la experiencia visual de ARCore: nube de puntos (los puntos con textura que sigue motion.js),
+     reconocimiento del piso con una malla de puntos que se expande, círculo guía y colocación con un toque. */
+  const ret3 = $("#reticle").object3D;
+  const floorPoint = new THREE.Vector3();
+  const fwdTmp = new THREE.Vector3();
+  let floorPhase = "none", floorT = 0, floorLost = 0, floorReady = false;
+
+  // malla de puntos que "reconoce" el piso (textura radial que se desvanece hacia afuera)
+  const gridMesh = (() => {
+    const cv = document.createElement("canvas");
+    cv.width = cv.height = 512;
+    const x = cv.getContext("2d"), R = 256, step = 46;
+    x.fillStyle = "#f3e8ff";
+    for (let row = -8; row <= 8; row++) for (let col = -8; col <= 8; col++) {
+      const px = R + col * step + (row & 1 ? step / 2 : 0), py = R + row * step * 0.866, r = Math.hypot(px - R, py - R);
+      if (r > R - 8) continue;
+      x.globalAlpha = Math.pow(1 - r / R, 1.1) * 0.95;
+      x.beginPath(); x.arc(px, py, 7, 0, Math.PI * 2); x.fill();
+    }
+    const t = new THREE.CanvasTexture(cv);
+    if (THREE.SRGBColorSpace) t.colorSpace = THREE.SRGBColorSpace;
+    const m = new THREE.Mesh(new THREE.CircleGeometry(1.4, 48), new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false }));
+    m.rotation.x = -Math.PI / 2; m.position.y = 0.004; m.renderOrder = 2; m.visible = false;
+    ret3.add(m);
+    return m;
+  })();
+
+  // nube de puntos sobre la imagen de la cámara
+  const ptsCv = $("#pts"), ptsCtx = ptsCv.getContext("2d");
+  const cloud = new Map();
+  let lastCloudT = 0, ptsShown = false;
+  function drawCloud(now) {
+    const W = innerWidth, H = innerHeight, dpr = Math.min(devicePixelRatio || 1, 2);
+    if (ptsCv.width !== Math.round(W * dpr) || ptsCv.height !== Math.round(H * dpr)) { ptsCv.width = Math.round(W * dpr); ptsCv.height = Math.round(H * dpr); }
+    ptsCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ptsCtx.clearRect(0, 0, W, H);
+    const vw = video.videoWidth, vh = video.videoHeight;
+    if (!vw || !vh) return;
+    const mp = window.MotionEstimator && MotionEstimator.points();
+    if (mp && mp.t !== lastCloudT) {
+      lastCloudT = mp.t;
+      mp.pts.forEach(([u, v]) => cloud.set(Math.round(u * 160) + "_" + Math.round(v * 160), { u, v, t: now }));
+    }
+    const k = Math.max(W / vw, H / vh), ox = (W - vw * k) / 2, oy = (H - vh * k) / 2;
+    ptsCtx.fillStyle = "#f3e8ff"; ptsCtx.shadowColor = "#c084fc"; ptsCtx.shadowBlur = 8;
+    for (const [key, p] of cloud) {
+      const a = 1 - (now - p.t) / 1800;
+      if (a <= 0) { cloud.delete(key); continue; }
+      ptsCtx.globalAlpha = a * 0.9;
+      ptsCtx.beginPath(); ptsCtx.arc(p.u * vw * k + ox, p.v * vh * k + oy, 2.4, 0, Math.PI * 2); ptsCtx.fill();
+    }
+    ptsCtx.globalAlpha = 1; ptsCtx.shadowBlur = 0;
+    ptsShown = true;
+  }
+  function clearCloud() {
+    if (!ptsShown) return;
+    ptsCtx.clearRect(0, 0, ptsCv.width, ptsCv.height);
+    cloud.clear(); ptsShown = false;
+  }
+
+  AFRAME.registerComponent("floor-scan", {
+    tick() {
+      const active = mode === "qr" && state === "scan" && floorEnabled;
+      if (!active) {
+        if (mode === "qr" && ret3.visible) ret3.visible = false;
+        gridMesh.visible = false; floorPhase = "none"; floorReady = false; clearCloud();
+        return;
+      }
+      const now = performance.now();
+      drawCloud(now);
+      camPose();
+      fwdTmp.set(0, 0, -1).applyQuaternion(camQ);
+      const pitchOk = fwdTmp.y < -0.34 && fwdTmp.y > -0.84;     // mirando entre ~20° y ~57° hacia abajo
+      let msg;
+      if (pitchOk) {
+        floorPoint.copy(camP).addScaledVector(fwdTmp, camP.y / -fwdTmp.y);
+        floorPoint.y = 0;
+        floorLost = 0;
+        if (floorPhase === "none") { floorPhase = "detecting"; floorT = now; }
+        const age = now - floorT;
+        ret3.visible = true; gridMesh.visible = true;
+        ret3.position.copy(floorPoint);
+        gridMesh.rotation.z += 0.004;
+        if (floorPhase === "detecting") {
+          const k = Math.min(1, age / 1400);
+          gridMesh.scale.setScalar(0.15 + 0.85 * (1 - Math.pow(1 - k, 3)));
+          ret3.scale.setScalar(0.8 + Math.abs(Math.sin(now / 160)) * 0.3);
+          if (age > 1400) floorPhase = "ready";
+          msg = "Reconociendo el piso…";
+        } else {
+          ret3.scale.setScalar(1 + Math.sin(now / 220) * 0.07);
+          msg = "Toca la pantalla para colocar a Byte \u{1F447}";
+        }
+        floorReady = floorPhase === "ready";
+      } else {
+        floorReady = false; ret3.visible = false; gridMesh.visible = false;
+        if (floorPhase !== "none") { if (!floorLost) floorLost = now; if (now - floorLost > 500) floorPhase = "none"; }
+        msg = fwdTmp.y >= -0.34 ? "\u{1F4F1} Mueve el celular despacio y apunta al piso" : "Aleja un poco la cámara de tus pies";
+      }
+      if (!needClear && !hintUntil && msg !== lastFloorMsg) { lastFloorMsg = msg; $("#scan-text").innerHTML = msg; }
+    },
+  });
+  scene.setAttribute("floor-scan", "");
+
+  // un toque corto cuando el piso está "reconocido" coloca a Byte ahí
+  let tapDown = null;
+  function floorDown(e) { if (state === "scan" && floorReady) tapDown = { x: e.clientX, y: e.clientY, t: performance.now() }; }
+  function floorUp(e) {
+    const d = tapDown; tapDown = null;
+    if (!d || state !== "scan" || !floorReady) return;
+    if (Math.hypot(e.clientX - d.x, e.clientY - d.y) < 12 && performance.now() - d.t < 600) spawnFloor(floorPoint.clone());
+  }
+  function spawnFloor(pos) {
+    userMult = 1; anchorFromQR = false;
+    worldScale = AR.scale;                     // tamaño físico fijo, como en AR real
+    state = "live";
+    $("#scan").hidden = true;
+    $("#btn-rescan").hidden = false;
+    mascotEl.object3D.scale.setScalar(worldScale);
+    qrAnchor.copy(pos);                        // el estimador de movimiento usa este punto como referencia de distancia
+    if (window.MotionEstimator) MotionEstimator.reset();
+    place(pos, true);                          // los pies quedan en el piso estimado
+    mascotEl.setAttribute("visible", true);
+    return runIntro(zoneParam);
   }
 
   /* ================= AR real con WebXR (Android + Chrome) =================
@@ -592,7 +734,8 @@
 
   AFRAME.registerComponent("xr-hit", {
     tick() {
-      if (mode !== "xr" || state !== "xr-find") { reticle.object3D.visible = false; return; }
+      if (mode !== "xr") return;
+      if (state !== "xr-find") { reticle.object3D.visible = false; return; }
       if (mock) { reticle.object3D.position.copy(hitPos); reticle.object3D.visible = true; return; }
       const frame = scene.frame;
       if (!hitSource || !frame) { reticle.object3D.visible = false; return; }
@@ -702,7 +845,7 @@
   };
   $("#btn-rescan").onclick = () => {
     needClear = false;
-    $("#scan-text").innerHTML = "Apunta la cámara al <b>código QR</b> para despertar a Byte";
+    resetScanText();
     rescan();
   };
   $("#btn-mute").onclick = (e) => {
